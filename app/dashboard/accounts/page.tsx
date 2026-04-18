@@ -1,0 +1,369 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import {
+    Card,
+    Table,
+    Button,
+    Modal,
+    Form,
+    Input,
+    Select,
+    Typography,
+    Tag,
+    Popconfirm,
+    message,
+} from 'antd';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { API_URL } from '@/lib/api/client';
+import { getToken } from '@/lib/auth/auth-utils';
+
+interface User {
+    id: number;
+    displayName: string;
+    email: string;
+    phoneNumber: string;
+    provider: 'FACEBOOK' | 'GOOGLE' | 'LOCAL';
+    providerId: string;
+    rewardPoints: number;
+    username: string;
+    roles: string[];
+}
+
+export default function UserPage() {
+    const { user } = useAuth();
+    const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+
+    const [users, setUsers] = useState<User[]>([]);
+    const [showForm, setShowForm] = useState(false);
+    const [isEdit, setIsEdit] = useState(false);
+    const [editId, setEditId] = useState<number | null>(null);
+
+    const [formUser, setFormUser] = useState({
+        displayName: '',
+        email: '',
+        phoneNumber: '',
+        username: '',
+        password: '',
+        provider: 'LOCAL',
+    });
+    const [newRole, setNewRole] = useState<'USER' | 'STAFF'>('USER');
+    const [editRole, setEditRole] = useState<'USER' | 'STAFF' | null>(null);
+    const [editingIsAdmin, setEditingIsAdmin] = useState<boolean>(false);
+
+    const [pagination, setPagination] = useState({
+        current: 1,
+        pageSize: 10,
+        total: 0,
+    });
+
+    const fetchUsers = async (page = 1, size = 10) => {
+        const token = getToken();
+        if (!token) return;
+
+        try {
+            // Spring Boot page is 0-indexed
+            const response = await fetch(`${API_URL}/api/users?page=${page - 1}&size=${size}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!response.ok) throw new Error('Failed to fetch users');
+            const data = await response.json();
+            setUsers(data.content || []);
+            setPagination({
+                current: page,
+                pageSize: size,
+                total: data.totalElements || 0,
+            });
+        } catch (error) {
+            console.error('Lỗi khi tải người dùng:', error);
+        }
+    };
+
+    useEffect(() => {
+        if (isAdmin) fetchUsers(pagination.current, pagination.pageSize);
+    }, [isAdmin]);
+
+    const handleTableChange = (newPagination: any) => {
+        fetchUsers(newPagination.current, newPagination.pageSize);
+    };
+
+    const handleDeleteUser = async (id: number) => {
+        const token = getToken();
+        if (!token) return;
+
+        try {
+            const res = await fetch(`${API_URL}/api/users/${id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error('Failed to delete user');
+            // Reload current page
+            fetchUsers(pagination.current, pagination.pageSize);
+            message.success('Xoá người dùng thành công');
+        } catch (error) {
+            console.error('Lỗi khi xoá người dùng:', error);
+            message.error('Lỗi khi xoá người dùng.');
+        }
+    };
+
+    const handleEditUser = (user: User) => {
+        setShowForm(true);
+        setIsEdit(true);
+        setEditId(user.id);
+        setFormUser({
+            displayName: user.displayName,
+            email: user.email,
+            phoneNumber: user.phoneNumber,
+            username: user.username,
+            password: '',
+            provider: user.provider,
+        });
+        const isAdminRole = Array.isArray(user.roles) && user.roles.some((r) => r.includes('ADMIN'));
+        setEditingIsAdmin(isAdminRole);
+        // Prefill editRole if not admin
+        if (!isAdminRole) {
+            if (Array.isArray(user.roles) && user.roles.some((r) => r.includes('STAFF')))
+                setEditRole('STAFF');
+            else setEditRole('USER');
+        } else {
+            setEditRole(null);
+        }
+    };
+
+    const handleSubmitUser = async () => {
+        const token = getToken();
+        if (!token) return;
+
+        try {
+            let url = '';
+            const payload: any = { ...formUser };
+
+            if (isEdit) {
+                url = `${API_URL}/api/users/${editId}`;
+                if (editRole) {
+                    payload.role = editRole;
+                }
+                // Update User API does not accept password anymore
+                delete payload.password;
+            } else {
+                if (newRole === 'STAFF') {
+                    url = `${API_URL}/api/users/staff`;
+                } else {
+                    url = `${API_URL}/api/users/user`;
+                }
+            }
+
+            const method = isEdit ? 'PUT' : 'POST';
+
+            // For creation, password is required, so we don't delete it unless empty (which creates validation error)
+            // For update, we already deleted it above.
+
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(text);
+            }
+
+            // Reload current page
+            fetchUsers(pagination.current, pagination.pageSize);
+
+            // Reset form
+            setShowForm(false);
+            setIsEdit(false);
+            setEditId(null);
+            setFormUser({
+                displayName: '',
+                email: '',
+                phoneNumber: '',
+                username: '',
+                password: '',
+                provider: 'LOCAL',
+            });
+            setNewRole('USER');
+            setEditRole(null);
+            setEditingIsAdmin(false);
+            message.success(isEdit ? 'Cập nhật thành công' : 'Thêm người dùng thành công');
+        } catch (error: any) {
+            console.error('Lỗi khi lưu người dùng:', error);
+            message.error(`Lỗi: ${error.message}`);
+        }
+    };
+
+    if (!isAdmin) {
+        return <Typography.Text>Bạn không có quyền truy cập trang này.</Typography.Text>;
+    }
+
+    const columns = [
+        { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },
+        { title: 'Tên hiển thị', dataIndex: 'displayName', key: 'displayName' },
+        { title: 'Email', dataIndex: 'email', key: 'email' },
+        { title: 'SĐT', dataIndex: 'phoneNumber', key: 'phoneNumber' },
+        {
+            title: 'Provider',
+            dataIndex: 'provider',
+            key: 'provider',
+            render: (p: User['provider']) => <Tag>{p || 'LOCAL'}</Tag>,
+        },
+        { title: 'Username', dataIndex: 'username', key: 'username' },
+        {
+            title: 'Quyền',
+            dataIndex: 'roles',
+            key: 'roles',
+            render: (roles: string[] = []) => (
+                <>
+                    {roles.map((r) => (
+                        <Tag
+                            key={r}
+                            color={r.includes('ADMIN') ? 'red' : r.includes('STAFF') ? 'blue' : 'green'}
+                        >
+                            {r}
+                        </Tag>
+                    ))}
+                </>
+            ),
+        },
+        { title: 'Điểm thưởng', dataIndex: 'rewardPoints', key: 'rewardPoints' },
+        {
+            title: 'Hành động',
+            key: 'actions',
+            render: (_: any, r: User) => (
+                <>
+                    <Button size="small" onClick={() => handleEditUser(r)} style={{ marginRight: 8 }}>
+                        Sửa
+                    </Button>
+                    {!(Array.isArray(r.roles) && r.roles.some((role) => role.includes('ADMIN'))) && (
+                        <Popconfirm title="Xoá người dùng này?" onConfirm={() => handleDeleteUser(r.id)}>
+                            <Button size="small" danger>
+                                Xoá
+                            </Button>
+                        </Popconfirm>
+                    )}
+                </>
+            ),
+        },
+    ];
+
+    return (
+        <Card
+            title={
+                <Typography.Title level={4} style={{ margin: 0 }}>
+                    Quản lý người dùng
+                </Typography.Title>
+            }
+            extra={
+                <Button
+                    type="primary"
+                    onClick={() => {
+                        setShowForm(true);
+                        setIsEdit(false);
+                        setFormUser({
+                            displayName: '',
+                            email: '',
+                            phoneNumber: '',
+                            username: '',
+                            password: '',
+                            provider: 'LOCAL',
+                        });
+                    }}
+                >
+                    + Thêm người dùng
+                </Button>
+            }
+        >
+            <Table
+                rowKey={(r) => String(r.id)}
+                dataSource={users}
+                columns={columns as any}
+                pagination={pagination}
+                onChange={handleTableChange}
+            />
+
+            <Modal
+                title={isEdit ? 'Cập nhật người dùng' : 'Thêm người dùng'}
+                open={showForm}
+                onOk={handleSubmitUser}
+                onCancel={() => setShowForm(false)}
+                okText={isEdit ? 'Cập nhật' : 'Lưu'}
+                cancelText="Hủy"
+            >
+                <Form layout="vertical">
+                    <Form.Item label="Tên hiển thị">
+                        <Input
+                            value={formUser.displayName}
+                            onChange={(e) => setFormUser({ ...formUser, displayName: e.target.value })}
+                        />
+                    </Form.Item>
+                    <Form.Item label="Email">
+                        <Input
+                            value={formUser.email}
+                            onChange={(e) => setFormUser({ ...formUser, email: e.target.value })}
+                        />
+                    </Form.Item>
+                    <Form.Item label="Số điện thoại">
+                        <Input
+                            value={formUser.phoneNumber}
+                            onChange={(e) => setFormUser({ ...formUser, phoneNumber: e.target.value })}
+                        />
+                    </Form.Item>
+                    <Form.Item label="Username">
+                        <Input
+                            value={formUser.username}
+                            onChange={(e) => setFormUser({ ...formUser, username: e.target.value })}
+                        />
+                    </Form.Item>
+                    {!isEdit && (
+                        <Form.Item label="Password">
+                            <Input.Password
+                                value={formUser.password}
+                                onChange={(e) => setFormUser({ ...formUser, password: e.target.value })}
+                            />
+                        </Form.Item>
+                    )}
+                    {!isEdit && (
+                        <Form.Item label="Quyền">
+                            <Select
+                                value={newRole}
+                                onChange={(v) => setNewRole(v)}
+                                options={[
+                                    { label: 'USER', value: 'USER' },
+                                    { label: 'STAFF', value: 'STAFF' },
+                                ]}
+                            />
+                        </Form.Item>
+                    )}
+                    {isEdit && !editingIsAdmin && (
+                        <Form.Item label="Quyền">
+                            <Select
+                                value={editRole as any}
+                                onChange={(v) => setEditRole(v)}
+                                options={[
+                                    { label: 'USER', value: 'USER' },
+                                    { label: 'STAFF', value: 'STAFF' },
+                                ]}
+                            />
+                        </Form.Item>
+                    )}
+                    <Form.Item label="Provider">
+                        <Select
+                            value={formUser.provider}
+                            onChange={(v) => setFormUser({ ...formUser, provider: v as any })}
+                            options={[
+                                { label: 'LOCAL', value: 'LOCAL' },
+                                { label: 'GOOGLE', value: 'GOOGLE' },
+                                { label: 'FACEBOOK', value: 'FACEBOOK' },
+                            ]}
+                        />
+                    </Form.Item>
+                </Form>
+            </Modal>
+        </Card>
+    );
+}
