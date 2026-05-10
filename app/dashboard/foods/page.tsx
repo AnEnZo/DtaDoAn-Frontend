@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     Card,
     Table,
@@ -13,10 +13,14 @@ import {
     Typography,
     Popconfirm,
     message,
+    Upload,
+    Spin,
 } from 'antd';
+import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { API_URL } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/auth-utils';
+import { uploadImageToCloudinary } from '@/lib/cloudinary/upload';
 
 interface CategoryDTO {
     id?: number;
@@ -57,6 +61,15 @@ export default function FoodPage() {
         category: { id: 0, name: '' },
         description: '',
     });
+
+    const [uploadingNew, setUploadingNew] = useState(false);
+    const [uploadProgressNew, setUploadProgressNew] = useState(0);
+    const [uploadingEdit, setUploadingEdit] = useState(false);
+    const [uploadProgressEdit, setUploadProgressEdit] = useState(0);
+    const [newImagePreview, setNewImagePreview] = useState<string>('');
+    const [editImagePreview, setEditImagePreview] = useState<string>('');
+    const [isDirtyNew, setIsDirtyNew] = useState(false);
+    const [isDirtyEdit, setIsDirtyEdit] = useState(false);
 
     useEffect(() => {
         const fetchAll = async () => {
@@ -108,7 +121,97 @@ export default function FoodPage() {
         }
     };
 
+    const handleFileSelect = async (
+        file: File,
+        isEdit: boolean
+    ) => {
+        const preview = URL.createObjectURL(file);
+        if (isEdit) {
+            setEditImagePreview(preview);
+            setIsDirtyEdit(true);
+            setUploadingEdit(true);
+            setUploadProgressEdit(0);
+        } else {
+            setNewImagePreview(preview);
+            setIsDirtyNew(true);
+            setUploadingNew(true);
+            setUploadProgressNew(0);
+        }
+
+        try {
+            const url = await uploadImageToCloudinary(file, (percent) => {
+                if (isEdit) setUploadProgressEdit(percent);
+                else setUploadProgressNew(percent);
+            });
+
+            if (isEdit) {
+                setEditFood((prev) => ({ ...prev, imageUrl: url }));
+                setUploadingEdit(false);
+                setIsDirtyEdit(false);
+                message.success('Tải ảnh lên thành công');
+            } else {
+                setNewFood((prev) => ({ ...prev, imageUrl: url }));
+                setUploadingNew(false);
+                setIsDirtyNew(false);
+                message.success('Tải ảnh lên thành công');
+            }
+        } catch (err) {
+            console.error('Upload error:', err);
+            if (isEdit) {
+                setEditImagePreview('');
+                setEditFood((prev) => ({ ...prev, imageUrl: '' }));
+                setUploadingEdit(false);
+                setIsDirtyEdit(false);
+            } else {
+                setNewImagePreview('');
+                setNewFood((prev) => ({ ...prev, imageUrl: '' }));
+                setUploadingNew(false);
+                setIsDirtyNew(false);
+            }
+            message.error('Tải ảnh lên thất bại');
+        }
+
+        return false;
+    };
+
+    const removeImage = (isEdit: boolean) => {
+        if (isEdit) {
+            if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+            setEditImagePreview('');
+            setEditFood((prev) => ({ ...prev, imageUrl: '' }));
+            setIsDirtyEdit(false);
+        } else {
+            if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+            setNewImagePreview('');
+            setNewFood((prev) => ({ ...prev, imageUrl: '' }));
+            setIsDirtyNew(false);
+        }
+    };
+
+    const resetCreateForm = () => {
+        if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+        setNewFood({ name: '', price: 0, imageUrl: '', category: { name: '' }, description: '' });
+        setNewImagePreview('');
+        setUploadingNew(false);
+        setUploadProgressNew(0);
+        setIsDirtyNew(false);
+    };
+
+    const resetEditForm = () => {
+        if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+        setEditingId(null);
+        setEditFood({ name: '', price: 0, imageUrl: '', category: { id: 0, name: '' }, description: '' });
+        setEditImagePreview('');
+        setUploadingEdit(false);
+        setUploadProgressEdit(0);
+        setIsDirtyEdit(false);
+    };
+
     const createFood = async () => {
+        if (uploadingNew) {
+            message.warning('Vui lòng đợi ảnh tải lên xong');
+            return;
+        }
         const token = getToken();
         if (!token) return;
 
@@ -126,7 +229,7 @@ export default function FoodPage() {
 
             const data = await res.json();
             setDanhSachMon((prev) => [...prev, data]);
-            setNewFood({ name: '', price: 0, imageUrl: '', category: { name: '' } });
+            resetCreateForm();
             setShowCreateForm(false);
             message.success('Thêm món ăn thành công');
         } catch (err) {
@@ -156,6 +259,10 @@ export default function FoodPage() {
     };
 
     const updateFood = async () => {
+        if (uploadingEdit) {
+            message.warning('Vui lòng đợi ảnh tải lên xong');
+            return;
+        }
         if (!editingId) return;
         const token = getToken();
         if (!token) return;
@@ -174,8 +281,7 @@ export default function FoodPage() {
 
             const data = await res.json();
             setDanhSachMon((prev) => prev.map((m) => (m.id === editingId ? data : m)));
-            setEditingId(null);
-            setEditFood({ name: '', price: 0, imageUrl: '', category: { id: 0, name: '' } });
+            resetEditForm();
             message.success('Cập nhật món ăn thành công');
         } catch (err) {
             console.error('Lỗi khi cập nhật món ăn:', err);
@@ -191,6 +297,93 @@ export default function FoodPage() {
         } else {
             setNewFood({ ...newFood, category: selected });
         }
+    };
+
+    const openEditModal = (food: MenuItemDTO) => {
+        setEditingId(food.id || 0);
+        setEditFood(food);
+        setEditImagePreview(food.imageUrl || '');
+        setUploadingEdit(false);
+        setUploadProgressEdit(0);
+        setIsDirtyEdit(false);
+    };
+
+    const ImageUploadField = ({
+        imageUrl,
+        imagePreview,
+        onSelect,
+        onRemove,
+        uploading,
+        uploadProgress,
+        isDirty,
+    }: {
+        imageUrl: string;
+        imagePreview: string;
+        onSelect: (file: File) => void;
+        onRemove: () => void;
+        uploading: boolean;
+        uploadProgress: number;
+        isDirty: boolean;
+    }) => {
+        const inputRef = useRef<HTMLInputElement>(null);
+
+        return (
+            <div style={{ marginBottom: 8 }}>
+                <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>Hình ảnh</label>
+
+                {uploading ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Spin size="small" />
+                        <span>Đang tải ảnh lên Cloudinary... {uploadProgress}%</span>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <Button
+                            icon={<UploadOutlined />}
+                            onClick={() => inputRef.current?.click()}
+                        >
+                            Chọn ảnh
+                        </Button>
+                        <input
+                            ref={inputRef}
+                            type="file"
+                            accept="image/*"
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) onSelect(file);
+                                e.target.value = '';
+                            }}
+                        />
+                        {imageUrl && (
+                            <Button
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={onRemove}
+                            >
+                                Xóa ảnh
+                            </Button>
+                        )}
+                    </div>
+                )}
+
+                {(imagePreview || imageUrl) && !uploading && (
+                    <div style={{ marginTop: 8 }}>
+                        <img
+                            src={imagePreview || imageUrl}
+                            alt="preview"
+                            style={{
+                                width: 120,
+                                height: 120,
+                                objectFit: 'cover',
+                                borderRadius: 6,
+                                border: '1px solid #d9d9d9',
+                            }}
+                        />
+                    </div>
+                )}
+            </div>
+        );
     };
 
     if (!isAdmin && !isStaff) {
@@ -225,13 +418,7 @@ export default function FoodPage() {
                 key: 'actions',
                 render: (_: any, r: MenuItemDTO) => (
                     <>
-                        <Button
-                            size="small"
-                            onClick={() => {
-                                setEditingId(r.id || 0);
-                                setEditFood(r);
-                            }}
-                        >
+                        <Button size="small" onClick={() => openEditModal(r)}>
                             Sửa
                         </Button>
                         <Popconfirm title="Xóa món này?" onConfirm={() => deleteFood(r.id!)}>
@@ -271,9 +458,13 @@ export default function FoodPage() {
                 title="Thêm món ăn"
                 open={showCreateForm}
                 onOk={createFood}
-                onCancel={() => setShowCreateForm(false)}
+                onCancel={() => {
+                    resetCreateForm();
+                    setShowCreateForm(false);
+                }}
                 okText="Lưu"
                 cancelText="Hủy"
+                okButtonProps={{ disabled: uploadingNew }}
             >
                 <Form layout="vertical">
                     <Form.Item label="Tên món">
@@ -287,12 +478,6 @@ export default function FoodPage() {
                             value={newFood.price}
                             onChange={(v) => setNewFood({ ...newFood, price: Number(v) })}
                             style={{ width: '100%' }}
-                        />
-                    </Form.Item>
-                    <Form.Item label="URL hình ảnh">
-                        <Input
-                            value={newFood.imageUrl}
-                            onChange={(e) => setNewFood({ ...newFood, imageUrl: e.target.value })}
                         />
                     </Form.Item>
                     <Form.Item label="Mô tả">
@@ -310,6 +495,20 @@ export default function FoodPage() {
                             placeholder="-- Chọn danh mục --"
                         />
                     </Form.Item>
+                    <Form.Item
+                        label="Hình ảnh"
+                        tooltip="Chọn ảnh từ máy, ảnh sẽ được tải lên Cloudinary tự động"
+                    >
+                        <ImageUploadField
+                            imageUrl={newFood.imageUrl}
+                            imagePreview={newImagePreview}
+                            onSelect={(file) => handleFileSelect(file, false)}
+                            onRemove={() => removeImage(false)}
+                            uploading={uploadingNew}
+                            uploadProgress={uploadProgressNew}
+                            isDirty={isDirtyNew}
+                        />
+                    </Form.Item>
                 </Form>
             </Modal>
 
@@ -317,9 +516,10 @@ export default function FoodPage() {
                 title="Chỉnh sửa món ăn"
                 open={editingId != null}
                 onOk={updateFood}
-                onCancel={() => setEditingId(null)}
+                onCancel={resetEditForm}
                 okText="Lưu"
                 cancelText="Hủy"
+                okButtonProps={{ disabled: uploadingEdit }}
             >
                 <Form layout="vertical">
                     <Form.Item label="Tên món">
@@ -335,12 +535,6 @@ export default function FoodPage() {
                             style={{ width: '100%' }}
                         />
                     </Form.Item>
-                    <Form.Item label="URL hình ảnh">
-                        <Input
-                            value={editFood.imageUrl}
-                            onChange={(e) => setEditFood({ ...editFood, imageUrl: e.target.value })}
-                        />
-                    </Form.Item>
                     <Form.Item label="Mô tả">
                         <Input.TextArea
                             rows={3}
@@ -354,6 +548,20 @@ export default function FoodPage() {
                             onChange={(v) => handleCategoryChange(v, true)}
                             options={categories.map((c) => ({ label: c.name, value: c.name }))}
                             placeholder="-- Chọn danh mục --"
+                        />
+                    </Form.Item>
+                    <Form.Item
+                        label="Hình ảnh"
+                        tooltip="Chọn ảnh mới để thay thế, ảnh sẽ được tải lên Cloudinary tự động"
+                    >
+                        <ImageUploadField
+                            imageUrl={editFood.imageUrl}
+                            imagePreview={editImagePreview}
+                            onSelect={(file) => handleFileSelect(file, true)}
+                            onRemove={() => removeImage(true)}
+                            uploading={uploadingEdit}
+                            uploadProgress={uploadProgressEdit}
+                            isDirty={isDirtyEdit}
                         />
                     </Form.Item>
                 </Form>

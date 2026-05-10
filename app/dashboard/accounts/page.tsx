@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
     Card,
     Table,
@@ -33,6 +33,7 @@ interface User {
 export default function UserPage() {
     const { user } = useAuth();
     const isAdmin = user?.roles?.includes('ROLE_ADMIN');
+    const [form] = Form.useForm();
 
     const [users, setUsers] = useState<User[]>([]);
     const [showForm, setShowForm] = useState(false);
@@ -135,18 +136,20 @@ export default function UserPage() {
         if (!token) return;
 
         try {
+            // Get values from form
+            const values = form.getFieldsValue();
             let url = '';
-            const payload: any = { ...formUser };
+            const payload: any = { ...values };
 
             if (isEdit) {
                 url = `${API_URL}/api/users/${editId}`;
-                if (editRole) {
-                    payload.role = editRole;
+                if (values.editRole) {
+                    payload.role = values.editRole;
                 }
                 // Update User API does not accept password anymore
                 delete payload.password;
             } else {
-                if (newRole === 'STAFF') {
+                if (values.role === 'STAFF') {
                     url = `${API_URL}/api/users/staff`;
                 } else {
                     url = `${API_URL}/api/users/user`;
@@ -154,9 +157,6 @@ export default function UserPage() {
             }
 
             const method = isEdit ? 'PUT' : 'POST';
-
-            // For creation, password is required, so we don't delete it unless empty (which creates validation error)
-            // For update, we already deleted it above.
 
             const response = await fetch(url, {
                 method,
@@ -169,7 +169,18 @@ export default function UserPage() {
 
             if (!response.ok) {
                 const text = await response.text();
-                throw new Error(text);
+                let errorMessage = 'Đã xảy ra lỗi';
+
+                try {
+                    // Try to parse as JSON and extract message
+                    const errorJson = JSON.parse(text);
+                    errorMessage = errorJson.message || errorJson.error || text;
+                } catch {
+                    // If not JSON, use the raw text (strip if too long)
+                    errorMessage = text.length > 200 ? text.substring(0, 200) + '...' : text;
+                }
+
+                throw new Error(errorMessage);
             }
 
             // Reload current page
@@ -289,49 +300,82 @@ export default function UserPage() {
             <Modal
                 title={isEdit ? 'Cập nhật người dùng' : 'Thêm người dùng'}
                 open={showForm}
-                onOk={handleSubmitUser}
-                onCancel={() => setShowForm(false)}
+                onOk={() => form.validateFields().then(() => handleSubmitUser())}
+                onCancel={() => {
+                    setShowForm(false);
+                    form.resetFields();
+                }}
                 okText={isEdit ? 'Cập nhật' : 'Lưu'}
                 cancelText="Hủy"
             >
-                <Form layout="vertical">
-                    <Form.Item label="Tên hiển thị">
-                        <Input
-                            value={formUser.displayName}
-                            onChange={(e) => setFormUser({ ...formUser, displayName: e.target.value })}
-                        />
+                <Form form={form} layout="vertical">
+                    <Form.Item
+                        label="Tên hiển thị"
+                        name="displayName"
+                        rules={[
+                            { required: true, message: 'Tên hiển thị không được để trống' },
+                            { min: 2, message: 'Tên phải có ít nhất 2 ký tự' },
+                            { max: 50, message: 'Tên không được quá 50 ký tự' },
+                        ]}
+                        initialValue={formUser.displayName}
+                    >
+                        <Input placeholder="Nhập tên hiển thị" />
                     </Form.Item>
-                    <Form.Item label="Email">
-                        <Input
-                            value={formUser.email}
-                            onChange={(e) => setFormUser({ ...formUser, email: e.target.value })}
-                        />
+                    <Form.Item
+                        label="Email"
+                        name="email"
+                        rules={[
+                            { required: true, message: 'Email không được để trống' },
+                            { type: 'email', message: 'Email không hợp lệ' },
+                        ]}
+                        initialValue={formUser.email}
+                    >
+                        <Input placeholder="Nhập email" />
                     </Form.Item>
-                    <Form.Item label="Số điện thoại">
-                        <Input
-                            value={formUser.phoneNumber}
-                            onChange={(e) => setFormUser({ ...formUser, phoneNumber: e.target.value })}
-                        />
+                    <Form.Item
+                        label="Số điện thoại"
+                        name="phoneNumber"
+                        rules={[
+                            { required: true, message: 'Số điện thoại không được để trống' },
+                            { pattern: /^[0-9]{11}$/, message: 'SĐT phải là 11 chữ số (VD: 01234567890)' },
+                        ]}
+                        initialValue={formUser.phoneNumber}
+                        extra="Nhập 11 chữ số, ví dụ: 01234567890"
+                    >
+                        <Input placeholder="Nhập 11 chữ số" maxLength={11} />
                     </Form.Item>
-                    <Form.Item label="Username">
-                        <Input
-                            value={formUser.username}
-                            onChange={(e) => setFormUser({ ...formUser, username: e.target.value })}
-                        />
+                    <Form.Item
+                        label="Username"
+                        name="username"
+                        rules={[
+                            { required: true, message: 'Username không được để trống' },
+                            { min: 3, message: 'Username phải có ít nhất 3 ký tự' },
+                            { max: 50, message: 'Username không được quá 50 ký tự' },
+                        ]}
+                        initialValue={formUser.username}
+                    >
+                        <Input placeholder="Nhập username" />
                     </Form.Item>
                     {!isEdit && (
-                        <Form.Item label="Password">
-                            <Input.Password
-                                value={formUser.password}
-                                onChange={(e) => setFormUser({ ...formUser, password: e.target.value })}
-                            />
+                        <Form.Item
+                            label="Password"
+                            name="password"
+                            rules={[
+                                { required: true, message: 'Password không được để trống' },
+                                { min: 6, message: 'Password phải có ít nhất 6 ký tự' },
+                                { max: 50, message: 'Password không được quá 50 ký tự' },
+                                {
+                                    pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/,
+                                    message: 'Password phải chứa ít nhất 1 chữ hoa, 1 chữ thường và 1 số',
+                                },
+                            ]}
+                        >
+                            <Input.Password placeholder="Nhập password" />
                         </Form.Item>
                     )}
                     {!isEdit && (
-                        <Form.Item label="Quyền">
+                        <Form.Item label="Quyền" name="role" initialValue={newRole}>
                             <Select
-                                value={newRole}
-                                onChange={(v) => setNewRole(v)}
                                 options={[
                                     { label: 'USER', value: 'USER' },
                                     { label: 'STAFF', value: 'STAFF' },
@@ -340,10 +384,8 @@ export default function UserPage() {
                         </Form.Item>
                     )}
                     {isEdit && !editingIsAdmin && (
-                        <Form.Item label="Quyền">
+                        <Form.Item label="Quyền" name="editRole" initialValue={editRole || 'USER'}>
                             <Select
-                                value={editRole as any}
-                                onChange={(v) => setEditRole(v)}
                                 options={[
                                     { label: 'USER', value: 'USER' },
                                     { label: 'STAFF', value: 'STAFF' },
@@ -351,10 +393,8 @@ export default function UserPage() {
                             />
                         </Form.Item>
                     )}
-                    <Form.Item label="Provider">
+                    <Form.Item label="Provider" name="provider" initialValue={formUser.provider}>
                         <Select
-                            value={formUser.provider}
-                            onChange={(v) => setFormUser({ ...formUser, provider: v as any })}
                             options={[
                                 { label: 'LOCAL', value: 'LOCAL' },
                                 { label: 'GOOGLE', value: 'GOOGLE' },

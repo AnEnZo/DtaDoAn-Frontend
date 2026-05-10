@@ -77,11 +77,16 @@ export default function CategoryPage() {
 
         setLoading(true);
         try {
-            const method = form.id === 0 ? 'POST' : 'PUT';
-            const url =
-                form.id === 0
-                    ? `${API_URL}/api/categories`
-                    : `${API_URL}/api/categories/${form.id}`;
+            const isCreate = form.id === 0;
+            const method = isCreate ? 'POST' : 'PUT';
+            const url = isCreate
+                ? `${API_URL}/api/categories`
+                : `${API_URL}/api/categories/${form.id}`;
+
+            // Only send name field (id should not be sent for create)
+            const payload = isCreate
+                ? { name: form.name.trim() }
+                : { name: form.name.trim() };
 
             const response = await fetch(url, {
                 method,
@@ -90,21 +95,23 @@ export default function CategoryPage() {
                     Authorization: `Bearer ${token}`,
                     'Cache-Control': 'no-store',
                 },
-                body: JSON.stringify(form),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
-                throw new Error('Thao tác thất bại');
+                const errorData = await response.json().catch(() => ({}));
+                const errorMessage = errorData.message || errorData.error || 'Thao tác thất bại';
+                throw new Error(errorMessage);
             }
 
             setForm({ id: 0, name: '' });
             setSearch('');
             setModalOpen(false);
-            message.success(form.id === 0 ? 'Thêm danh mục thành công' : 'Cập nhật danh mục thành công');
+            message.success(isCreate ? 'Thêm danh mục thành công' : 'Cập nhật danh mục thành công');
             await fetchCategories();
-        } catch (err) {
-            message.error('Lỗi khi gửi dữ liệu. Vui lòng thử lại.');
-            console.error(err);
+        } catch (err: any) {
+            message.error(err.message || 'Lỗi khi gửi dữ liệu. Vui lòng thử lại.');
+            console.error('Category error:', err);
         } finally {
             setLoading(false);
         }

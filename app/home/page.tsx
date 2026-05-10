@@ -209,7 +209,6 @@ export default function HomePage() {
                             </motion.div>
                         )}
                     </motion.nav>
-
                     {/* Auth info bên phải */}
                     <motion.div className="nav-actions" {...navItem}>
                         {user ? (

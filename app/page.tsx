@@ -9,6 +9,7 @@ import { FaGoogle } from 'react-icons/fa';
 import { Button } from 'antd';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { API_URL } from '@/lib/api/client';
+import { useAuthStore } from '@/lib/store/auth-store';
 
 interface LoginFormData {
   username: string;
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [message, setMessage] = useState<string>('');
   const router = useRouter();
   const { login } = useAuth();
+  const { login: storeLogin, getRedirectPath } = useAuthStore();
 
   const {
     register,
@@ -34,6 +36,19 @@ export default function LoginPage() {
     },
   });
 
+  const handleLoginSuccess = (token: string) => {
+    // Update both hooks and store
+    login(token);
+    storeLogin(token);
+
+    setMessage('Đăng nhập thành công!');
+    reset();
+
+    // Smart redirect based on role
+    const redirectPath = getRedirectPath();
+    setTimeout(() => router.push(redirectPath), 800);
+  };
+
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     setMessage('');
@@ -46,12 +61,7 @@ export default function LoginPage() {
       if (!res.ok) throw new Error('Đăng nhập thất bại');
       const responseData = await res.json();
 
-      // Use the new cookie-based login
-      login(responseData.token);
-
-      setMessage('Đăng nhập thành công!');
-      reset();
-      setTimeout(() => router.push('/home'), 1000);
+      handleLoginSuccess(responseData.token);
     } catch (err: any) {
       setMessage(err.message);
     } finally {
@@ -86,7 +96,7 @@ export default function LoginPage() {
           {/* Brand Logo */}
           <div className="text-center mb-6">
             <Image
-              src="/logoTheCoffeHouse.png"
+              src="/assets/logoTheCoffeHouse.png"
               alt="The Coffee House"
               width={220}
               height={100}
