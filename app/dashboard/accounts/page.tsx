@@ -337,12 +337,12 @@ export default function UserPage() {
                         name="phoneNumber"
                         rules={[
                             { required: true, message: 'Số điện thoại không được để trống' },
-                            { pattern: /^[0-9]{11}$/, message: 'SĐT phải là 11 chữ số (VD: 01234567890)' },
+                            { pattern: /^[0-9]{10}$/, message: 'SĐT phải là 10 chữ số (VD: 0123456789)' },
                         ]}
                         initialValue={formUser.phoneNumber}
-                        extra="Nhập 11 chữ số, ví dụ: 01234567890"
+                        extra="Nhập 10 chữ số, ví dụ: 0123456789"
                     >
-                        <Input placeholder="Nhập 11 chữ số" maxLength={11} />
+                        <Input placeholder="Nhập 10 chữ số" maxLength={10} />
                     </Form.Item>
                     <Form.Item
                         label="Username"
