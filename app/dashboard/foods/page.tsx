@@ -13,14 +13,13 @@ import {
     Typography,
     Popconfirm,
     message,
-    Upload,
     Spin,
 } from 'antd';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { API_URL } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/auth-utils';
-import { uploadImageToCloudinary } from '@/lib/cloudinary/upload';
+import { uploadImageViaBackend } from '@/lib/cloudinary/upload';
 
 interface CategoryDTO {
     id?: number;
@@ -68,8 +67,8 @@ export default function FoodPage() {
     const [uploadProgressEdit, setUploadProgressEdit] = useState(0);
     const [newImagePreview, setNewImagePreview] = useState<string>('');
     const [editImagePreview, setEditImagePreview] = useState<string>('');
-    const [isDirtyNew, setIsDirtyNew] = useState(false);
-    const [isDirtyEdit, setIsDirtyEdit] = useState(false);
+    const [pendingNewFile, setPendingNewFile] = useState<File | null>(null);
+    const [pendingEditFile, setPendingEditFile] = useState<File | null>(null);
 
     useEffect(() => {
         const fetchAll = async () => {
@@ -121,108 +120,88 @@ export default function FoodPage() {
         }
     };
 
-    const handleFileSelect = async (
-        file: File,
-        isEdit: boolean
-    ) => {
+    const handleFileSelect = (file: File, isEdit: boolean) => {
         const preview = URL.createObjectURL(file);
         if (isEdit) {
+            if (editImagePreview?.startsWith('blob:')) {
+                URL.revokeObjectURL(editImagePreview);
+            }
             setEditImagePreview(preview);
-            setIsDirtyEdit(true);
-            setUploadingEdit(true);
-            setUploadProgressEdit(0);
+            setPendingEditFile(file);
         } else {
+            if (newImagePreview?.startsWith('blob:')) {
+                URL.revokeObjectURL(newImagePreview);
+            }
             setNewImagePreview(preview);
-            setIsDirtyNew(true);
-            setUploadingNew(true);
-            setUploadProgressNew(0);
+            setPendingNewFile(file);
+            setNewFood((prev) => ({ ...prev, imageUrl: '' }));
         }
-
-        try {
-            const url = await uploadImageToCloudinary(file, (percent) => {
-                if (isEdit) setUploadProgressEdit(percent);
-                else setUploadProgressNew(percent);
-            });
-
-            if (isEdit) {
-                setEditFood((prev) => ({ ...prev, imageUrl: url }));
-                setUploadingEdit(false);
-                setIsDirtyEdit(false);
-                message.success('Tải ảnh lên thành công');
-            } else {
-                setNewFood((prev) => ({ ...prev, imageUrl: url }));
-                setUploadingNew(false);
-                setIsDirtyNew(false);
-                message.success('Tải ảnh lên thành công');
-            }
-        } catch (err) {
-            console.error('Upload error:', err);
-            if (isEdit) {
-                setEditImagePreview('');
-                setEditFood((prev) => ({ ...prev, imageUrl: '' }));
-                setUploadingEdit(false);
-                setIsDirtyEdit(false);
-            } else {
-                setNewImagePreview('');
-                setNewFood((prev) => ({ ...prev, imageUrl: '' }));
-                setUploadingNew(false);
-                setIsDirtyNew(false);
-            }
-            message.error('Tải ảnh lên thất bại');
-        }
-
         return false;
     };
 
     const removeImage = (isEdit: boolean) => {
         if (isEdit) {
-            if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+            if (editImagePreview?.startsWith('blob:')) URL.revokeObjectURL(editImagePreview);
             setEditImagePreview('');
+            setPendingEditFile(null);
             setEditFood((prev) => ({ ...prev, imageUrl: '' }));
-            setIsDirtyEdit(false);
         } else {
-            if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+            if (newImagePreview?.startsWith('blob:')) URL.revokeObjectURL(newImagePreview);
             setNewImagePreview('');
+            setPendingNewFile(null);
             setNewFood((prev) => ({ ...prev, imageUrl: '' }));
-            setIsDirtyNew(false);
         }
     };
 
     const resetCreateForm = () => {
-        if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+        if (newImagePreview?.startsWith('blob:')) URL.revokeObjectURL(newImagePreview);
         setNewFood({ name: '', price: 0, imageUrl: '', category: { name: '' }, description: '' });
         setNewImagePreview('');
+        setPendingNewFile(null);
         setUploadingNew(false);
         setUploadProgressNew(0);
-        setIsDirtyNew(false);
     };
 
     const resetEditForm = () => {
-        if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+        if (editImagePreview?.startsWith('blob:')) URL.revokeObjectURL(editImagePreview);
         setEditingId(null);
         setEditFood({ name: '', price: 0, imageUrl: '', category: { id: 0, name: '' }, description: '' });
         setEditImagePreview('');
+        setPendingEditFile(null);
         setUploadingEdit(false);
         setUploadProgressEdit(0);
-        setIsDirtyEdit(false);
     };
 
     const createFood = async () => {
         if (uploadingNew) {
-            message.warning('Vui lòng đợi ảnh tải lên xong');
+            message.warning('Vui lòng đợi thao tác hoàn tất');
             return;
         }
         const token = getToken();
         if (!token) return;
 
+        let imageUrl = newFood.imageUrl;
         try {
+            if (pendingNewFile) {
+                setUploadingNew(true);
+                setUploadProgressNew(0);
+                imageUrl = await uploadImageViaBackend(pendingNewFile, (p) =>
+                    setUploadProgressNew(p),
+                );
+            }
+
+            if (!imageUrl?.trim()) {
+                message.error('Vui lòng chọn ảnh món');
+                return;
+            }
+
             const res = await fetch(`${API_URL}/api/menu-items`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(newFood),
+                body: JSON.stringify({ ...newFood, imageUrl }),
             });
 
             if (!res.ok) throw new Error('Failed to create food');
@@ -234,7 +213,9 @@ export default function FoodPage() {
             message.success('Thêm món ăn thành công');
         } catch (err) {
             console.error('Lỗi khi tạo món ăn:', err);
-            message.error('Lỗi khi tạo món ăn');
+            message.error(err instanceof Error ? err.message : 'Lỗi khi tạo món ăn');
+        } finally {
+            setUploadingNew(false);
         }
     };
 
@@ -260,21 +241,35 @@ export default function FoodPage() {
 
     const updateFood = async () => {
         if (uploadingEdit) {
-            message.warning('Vui lòng đợi ảnh tải lên xong');
+            message.warning('Vui lòng đợi thao tác hoàn tất');
             return;
         }
         if (!editingId) return;
         const token = getToken();
         if (!token) return;
 
+        let imageUrl = editFood.imageUrl;
         try {
+            if (pendingEditFile) {
+                setUploadingEdit(true);
+                setUploadProgressEdit(0);
+                imageUrl = await uploadImageViaBackend(pendingEditFile, (p) =>
+                    setUploadProgressEdit(p),
+                );
+            }
+
+            if (!imageUrl?.trim()) {
+                message.error('Vui lòng chọn ảnh món');
+                return;
+            }
+
             const res = await fetch(`${API_URL}/api/menu-items/${editingId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(editFood),
+                body: JSON.stringify({ ...editFood, imageUrl }),
             });
 
             if (!res.ok) throw new Error('Failed to update food');
@@ -285,7 +280,9 @@ export default function FoodPage() {
             message.success('Cập nhật món ăn thành công');
         } catch (err) {
             console.error('Lỗi khi cập nhật món ăn:', err);
-            message.error('Lỗi khi cập nhật món ăn');
+            message.error(err instanceof Error ? err.message : 'Lỗi khi cập nhật món ăn');
+        } finally {
+            setUploadingEdit(false);
         }
     };
 
@@ -303,9 +300,9 @@ export default function FoodPage() {
         setEditingId(food.id || 0);
         setEditFood(food);
         setEditImagePreview(food.imageUrl || '');
+        setPendingEditFile(null);
         setUploadingEdit(false);
         setUploadProgressEdit(0);
-        setIsDirtyEdit(false);
     };
 
     const ImageUploadField = ({
@@ -315,7 +312,6 @@ export default function FoodPage() {
         onRemove,
         uploading,
         uploadProgress,
-        isDirty,
     }: {
         imageUrl: string;
         imagePreview: string;
@@ -323,7 +319,6 @@ export default function FoodPage() {
         onRemove: () => void;
         uploading: boolean;
         uploadProgress: number;
-        isDirty: boolean;
     }) => {
         const inputRef = useRef<HTMLInputElement>(null);
 
@@ -334,7 +329,7 @@ export default function FoodPage() {
                 {uploading ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Spin size="small" />
-                        <span>Đang tải ảnh lên Cloudinary... {uploadProgress}%</span>
+                        <span>Đang tải ảnh lên... {uploadProgress}%</span>
                     </div>
                 ) : (
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -355,7 +350,7 @@ export default function FoodPage() {
                                 e.target.value = '';
                             }}
                         />
-                        {imageUrl && (
+                        {(imagePreview || imageUrl) && (
                             <Button
                                 danger
                                 icon={<DeleteOutlined />}
@@ -497,7 +492,7 @@ export default function FoodPage() {
                     </Form.Item>
                     <Form.Item
                         label="Hình ảnh"
-                        tooltip="Chọn ảnh từ máy, ảnh sẽ được tải lên Cloudinary tự động"
+                        tooltip="Chọn ảnh để xem trước; ảnh chỉ được tải lên khi bạn bấm Lưu"
                     >
                         <ImageUploadField
                             imageUrl={newFood.imageUrl}
@@ -506,7 +501,6 @@ export default function FoodPage() {
                             onRemove={() => removeImage(false)}
                             uploading={uploadingNew}
                             uploadProgress={uploadProgressNew}
-                            isDirty={isDirtyNew}
                         />
                     </Form.Item>
                 </Form>
@@ -552,7 +546,7 @@ export default function FoodPage() {
                     </Form.Item>
                     <Form.Item
                         label="Hình ảnh"
-                        tooltip="Chọn ảnh mới để thay thế, ảnh sẽ được tải lên Cloudinary tự động"
+                        tooltip="Chọn ảnh mới để xem trước; ảnh chỉ được tải lên khi bạn bấm Lưu"
                     >
                         <ImageUploadField
                             imageUrl={editFood.imageUrl}
@@ -561,7 +555,6 @@ export default function FoodPage() {
                             onRemove={() => removeImage(true)}
                             uploading={uploadingEdit}
                             uploadProgress={uploadProgressEdit}
-                            isDirty={isDirtyEdit}
                         />
                     </Form.Item>
                 </Form>

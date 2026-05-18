@@ -1,67 +1,69 @@
-import axios from 'axios';
+'use client';
+
 import { getAuthHeader } from '../auth/auth-utils';
 import { API_URL } from '../api/client';
 
-interface SignatureData {
-  signature: string;
-  timestamp: string;
-  apiKey: string;
-  cloudName: string;
-  folder: string;
-}
-
-export async function generateSignature(folder = 'DtaAssigment'): Promise<SignatureData> {
-  const token = getAuthHeader();
-  const res = await axios.post(
-    `${API_URL}/api/images/signature`,
-    { folder },
-    { headers: { Authorization: token } }
-  );
-  if (!res.data.success) {
-    throw new Error(res.data.message || 'Failed to generate signature');
-  }
-  return res.data.data;
-}
-
-export async function uploadImageToCloudinary(
-  file: File,
-  onProgress?: (percent: number) => void
+/**
+ * Upload image via backend (multipart). Uses JWT — avoids Cloudinary signed-upload 401
+ * when browser params/signature do not match server signing.
+ */
+export async function uploadImageViaBackend(
+    file: File,
+    onProgress?: (percent: number) => void,
 ): Promise<string> {
-  const sig = await generateSignature();
+    const auth = getAuthHeader();
+    if (!auth) {
+        throw new Error('Bạn cần đăng nhập để tải ảnh lên.');
+    }
 
-  const formData = new FormData();
-  formData.append('file', file);
-  formData.append('signature', sig.signature);
-  formData.append('timestamp', sig.timestamp);
-  formData.append('api_key', sig.apiKey);
-  formData.append('folder', sig.folder);
+    const formData = new FormData();
+    formData.append('file', file);
 
-  const xhr = new XMLHttpRequest();
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
 
-  return new Promise((resolve, reject) => {
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable && onProgress) {
-        onProgress(Math.round((e.loaded / e.total) * 100));
-      }
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable && onProgress) {
+                onProgress(Math.round((e.loaded / e.total) * 100));
+            }
+        });
+
+        xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const json = JSON.parse(xhr.responseText);
+                    const url = json?.data?.url as string | undefined;
+                    if (!url) {
+                        reject(new Error(json?.message || 'Không nhận được URL ảnh từ server'));
+                        return;
+                    }
+                    resolve(url);
+                } catch {
+                    reject(new Error('Phản hồi server không hợp lệ'));
+                }
+            } else if (xhr.status === 401) {
+                reject(
+                    new Error(
+                        'Không có quyền tải ảnh hoặc phiên đăng nhập đã hết hạn (401).',
+                    ),
+                );
+            } else {
+                let msg = `Tải ảnh thất bại (${xhr.status})`;
+                try {
+                    const json = JSON.parse(xhr.responseText);
+                    if (json?.message) msg = json.message;
+                } catch {
+                    /* ignore */
+                }
+                reject(new Error(msg));
+            }
+        });
+
+        xhr.addEventListener('error', () => reject(new Error('Lỗi mạng khi tải ảnh')));
+        xhr.addEventListener('abort', () => reject(new Error('Đã hủy tải ảnh')));
+
+        xhr.open('POST', `${API_URL}/api/images/upload`);
+        xhr.setRequestHeader('Authorization', auth);
+        xhr.send(formData);
     });
-
-    xhr.addEventListener('load', () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const resp = JSON.parse(xhr.responseText);
-          resolve(resp.secure_url);
-        } catch {
-          reject(new Error('Invalid response from Cloudinary'));
-        }
-      } else {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
-      }
-    });
-
-    xhr.addEventListener('error', () => reject(new Error('Upload request failed')));
-    xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
-
-    xhr.open('POST', `https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`);
-    xhr.send(formData);
-  });
 }

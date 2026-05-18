@@ -22,6 +22,7 @@ import {
     RiseOutlined,
     HistoryOutlined,
     InstagramOutlined,
+    DatabaseOutlined,
 } from '@ant-design/icons';
 import { API_URL } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/auth-utils';
@@ -31,13 +32,31 @@ const GEO = 'VN';
 const LIMIT = 20;
 
 interface FoodTrendItem {
-    foodName: string;
-    hotnessScore: number | null;
-    searchVolume: number | null;
-    increasePercentage: number | null;
+    id: number;
+    food_name: string;
+    food_type: string | null;
+    hotness_score: number | null;
+    search_volume: number | null;
+    increase_percentage: number | null;
+    related_keywords: string[] | null;
+    reasoning: string | null;
     status: string | null;
-    lastUpdatedAt: string | null;
-    firstSeenAt: string | null;
+    last_updated_at: string | null;
+    first_seen_at: string | null;
+}
+
+interface PageMetadata {
+    page: number;
+    page_size: number;
+    total_items: number;
+    total_pages: number;
+    has_next: boolean;
+    has_previous: boolean;
+}
+
+interface PagedTrends {
+    content: FoodTrendItem[];
+    pagination: PageMetadata;
 }
 
 interface FoodTrendsResponse {
@@ -80,6 +99,26 @@ interface InstagramTrendingFood {
     };
     trendStatus: string;
     updatedAt: string;
+}
+
+interface RawTrendItem {
+    id: number;
+    query: string;
+    search_volume: number | string | null;
+    increase_percentage: number | string | null;
+    categories: string | string[] | null;
+    trend_breakdown: string | string[] | null;
+    location: string | null;
+    fetched_date: string | null;
+    fetched_at: string | null;
+}
+
+interface RawTrendsResponse {
+    totalItems: number;
+    geo: string;
+    date: string | null;
+    dataSource: string | null;
+    pagedTrends: PagedTrends;
 }
 
 // ============================================================
@@ -130,9 +169,9 @@ const StatCard: React.FC<{
 // ============================================================
 const ScoreTag = ({ score }: { score: number | null }) => {
     if (score == null) return <Tag>—</Tag>;
-    if (score >= 70) return <Tag color="red">🔴 {score}</Tag>;
-    if (score >= 40) return <Tag color="orange">🟠 {score}</Tag>;
-    return <Tag color="gold">🟡 {score}</Tag>;
+    if (score >= 70) return <Tag color="red">{score}</Tag>;
+    if (score >= 40) return <Tag color="orange">{score}</Tag>;
+    return <Tag color="gold">{score}</Tag>;
 };
 
 // ============================================================
@@ -147,25 +186,25 @@ const trendColumns = [
     },
     {
         title: 'Tên món / Xu hướng',
-        dataIndex: 'foodName',
-        key: 'foodName',
+        dataIndex: 'food_name',
+        key: 'food_name',
         width: 220,
         render: (text: string) => <strong>{text}</strong>,
     },
     {
         title: 'Trend Score',
-        dataIndex: 'hotnessScore',
-        key: 'hotnessScore',
+        dataIndex: 'hotness_score',
+        key: 'hotness_score',
         width: 130,
-        sorter: (a: FoodTrendItem, b: FoodTrendItem) => (b.hotnessScore ?? 0) - (a.hotnessScore ?? 0),
+        sorter: (a: FoodTrendItem, b: FoodTrendItem) => (b.hotness_score ?? 0) - (a.hotness_score ?? 0),
         render: (score: number | null) => <ScoreTag score={score} />,
     },
     {
         title: 'Search Volume',
-        dataIndex: 'searchVolume',
-        key: 'searchVolume',
+        dataIndex: 'search_volume',
+        key: 'search_volume',
         width: 150,
-        sorter: (a: FoodTrendItem, b: FoodTrendItem) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0),
+        sorter: (a: FoodTrendItem, b: FoodTrendItem) => (b.search_volume ?? 0) - (a.search_volume ?? 0),
         render: (v: number | null) =>
             v != null ? (
                 <span style={{ fontWeight: 600 }}>{v.toLocaleString('vi-VN')}</span>
@@ -175,8 +214,8 @@ const trendColumns = [
     },
     {
         title: 'Tăng trưởng',
-        dataIndex: 'increasePercentage',
-        key: 'increasePercentage',
+        dataIndex: 'increase_percentage',
+        key: 'increase_percentage',
         width: 130,
         render: (v: number | null) =>
             v != null ? (
@@ -195,8 +234,8 @@ const trendColumns = [
     },
     {
         title: 'Cập nhật lúc',
-        dataIndex: 'lastUpdatedAt',
-        key: 'lastUpdatedAt',
+        dataIndex: 'last_updated_at',
+        key: 'last_updated_at',
         width: 180,
         render: (d: string | null) =>
             d ? new Date(d).toLocaleString('vi-VN') : <span style={{ color: '#999' }}>—</span>,
@@ -357,7 +396,7 @@ function TodayTab() {
                 )}
 
                 <Table
-                    rowKey={(r) => r.foodName + (r.lastUpdatedAt ?? '')}
+                    rowKey={(r) => (r.id ?? r.food_name ?? '') + (r.last_updated_at ?? '')}
                     loading={loading}
                     columns={trendColumns as any}
                     dataSource={data}
@@ -384,27 +423,30 @@ function TodayTab() {
 // Tab 2 — Lịch sử
 // ============================================================
 function HistoryTab() {
-    const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
     const [data, setData] = useState<FoodTrendItem[]>([]);
     const [loading, setLoading] = useState(false);
-    const [searched, setSearched] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const PAGE_SIZE = 10;
 
-    const fetchHistory = async (date: Dayjs) => {
+    const fetchHistory = async (page = 1) => {
         const token = getToken();
         if (!token) { message.error('Chưa đăng nhập.'); return; }
         setLoading(true);
-        setSearched(true);
         try {
-            const dateStr = date.format('YYYY-MM-DD');
             const res = await fetch(
-                `${API_URL}/api/serpapi/food-trends/history?geo=${GEO}&date=${dateStr}&limit=${LIMIT}`,
+                `${API_URL}/api/serpapi/food-trends/history?geo=${GEO}&page=${page}&limit=${PAGE_SIZE}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             if (!res.ok) throw new Error('Lỗi API');
-            const body: FoodTrendsResponse = await res.json();
-            setData(body.trends ?? []);
-            if ((body.trends ?? []).length === 0) {
-                message.info(`Không có dữ liệu cho ngày ${dateStr}.`);
+            const body: PagedTrends = await res.json();
+            setData(body.content ?? []);
+            setTotalItems(body.pagination?.total_items ?? 0);
+            setTotalPages(body.pagination?.total_pages ?? 0);
+            setCurrentPage(page);
+            if ((body.content ?? []).length === 0) {
+                message.info('Chưa có dữ liệu xu hướng nào trong database.');
             }
         } catch {
             message.error('Không thể tải dữ liệu lịch sử.');
@@ -412,6 +454,8 @@ function HistoryTab() {
             setLoading(false);
         }
     };
+
+    useEffect(() => { fetchHistory(1); }, []);
 
     return (
         <Card
@@ -421,50 +465,39 @@ function HistoryTab() {
                         📅 Lịch Sử Hot Trend
                     </Typography.Title>
                     <Typography.Text type="secondary">
-                        Chọn ngày để xem xu hướng ẩm thực đã lưu · Khu vực: {GEO}
+                        Tất cả xu hướng ẩm thực đã lưu · Khu vực: {GEO} · {totalItems} records
                     </Typography.Text>
                 </Space>
             }
             extra={
-                <Space>
-                    <DatePicker
-                        value={selectedDate}
-                        onChange={(d) => setSelectedDate(d)}
-                        format="DD/MM/YYYY"
-                        placeholder="Chọn ngày"
-                        disabledDate={(current) => current && current.isAfter(new Date(), 'day')}
-                    />
-                    <Button
-                        type="primary"
-                        icon={<HistoryOutlined />}
-                        disabled={!selectedDate || loading}
-                        onClick={() => selectedDate && fetchHistory(selectedDate)}
-                        style={{ background: '#b45309', borderColor: '#b45309' }}
-                    >
-                        Xem
-                    </Button>
-                </Space>
+                <Button
+                    icon={<ReloadOutlined />}
+                    onClick={() => fetchHistory(currentPage)}
+                    disabled={loading}
+                >
+                    Làm mới
+                </Button>
             }
             variant="outlined"
         >
-            {!searched ? (
-                <div style={{ textAlign: 'center', padding: '48px 0', color: '#9ca3af' }}>
-                    <HistoryOutlined style={{ fontSize: 48, marginBottom: 12 }} />
-                    <div>Chọn một ngày để xem dữ liệu xu hướng đã lưu.</div>
-                </div>
-            ) : (
-                <Spin spinning={loading}>
-                    <Table
-                        rowKey={(r) => r.foodName + (r.lastUpdatedAt ?? '')}
-                        loading={false}
-                        columns={trendColumns as any}
-                        dataSource={data}
-                        pagination={{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['10', '20'] }}
-                        locale={{ emptyText: 'Không có dữ liệu cho ngày này.' }}
-                        scroll={{ x: 1000 }}
-                    />
-                </Spin>
-            )}
+            <Spin spinning={loading}>
+                <Table
+                    rowKey={(r) => (r.id ?? r.food_name ?? '') + (r.last_updated_at ?? '')}
+                    columns={trendColumns as any}
+                    dataSource={data}
+                    loading={false}
+                    pagination={{
+                        current: currentPage,
+                        pageSize: PAGE_SIZE,
+                        total: totalItems,
+                        showSizeChanger: false,
+                        showTotal: (total: number) => `Tổng ${total} records`,
+                        onChange: (page) => fetchHistory(page),
+                    }}
+                    locale={{ emptyText: 'Chưa có dữ liệu xu hướng nào trong database.' }}
+                    scroll={{ x: 1000 }}
+                />
+            </Spin>
         </Card>
     );
 }
@@ -615,6 +648,280 @@ function InstagramTab() {
 }
 
 // ============================================================
+// Tab 4 — Raw Data (Before Llama)
+// ============================================================
+function RawDataTab() {
+    const [data, setData] = useState<RawTrendItem[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [fetching, setFetching] = useState(false);
+    const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
+    const [searched, setSearched] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
+    const PAGE_SIZE = 10;
+
+    const fetchRawTrends = async (date?: Dayjs, page = 1) => {
+        const token = getToken();
+        if (!token) { message.error('Chưa đăng nhập.'); return; }
+        setLoading(true);
+        setSearched(true);
+        try {
+            const dateStr = date ? date.format('YYYY-MM-DD') : '';
+            const url = dateStr
+                ? `${API_URL}/api/serpapi/food-trends/raw?geo=${GEO}&date=${dateStr}&page=${page}&limit=${PAGE_SIZE}`
+                : `${API_URL}/api/serpapi/food-trends/raw?geo=${GEO}&page=${page}&limit=${PAGE_SIZE}`;
+
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            if (!res.ok) throw new Error('Lỗi API');
+            const body: RawTrendsResponse = await res.json();
+            const content = body.pagedTrends?.content ?? [];
+            setData(content);
+            setTotalItems(body.pagedTrends?.pagination?.total_items ?? 0);
+            setCurrentPage(page);
+            if (content.length === 0) {
+                message.info('Chưa có raw data cho ngày này. Bấm "Fetch Raw Data" để lấy dữ liệu từ Google Trends.');
+            }
+        } catch {
+            message.error('Không thể tải raw data.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleFetchRawData = async () => {
+        const token = getToken();
+        if (!token) { message.error('Chưa đăng nhập.'); return; }
+        setFetching(true);
+        try {
+            const res = await fetch(
+                `${API_URL}/api/serpapi/food-trends/fetch?geo=${GEO}&hours=24`,
+                { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
+            );
+            if (!res.ok) throw new Error('Lỗi API');
+            const result = await res.json();
+            if (result.status === 'ok') {
+                message.success(`Đã fetch ${result.fetched} raw queries từ Google Trends!`);
+            } else {
+                message.info(result.reason || 'Đã có data cho hôm nay.');
+            }
+            await fetchRawTrends();
+        } catch {
+            message.error('Fetch raw data thất bại.');
+        } finally {
+            setFetching(false);
+        }
+    };
+
+    useEffect(() => { fetchRawTrends(); }, []);
+
+    const rawColumns = [
+        {
+            title: '#',
+            key: 'index',
+            width: 50,
+            render: (_: any, __: any, index: number) => (currentPage - 1) * PAGE_SIZE + index + 1,
+        },
+        {
+            title: 'Query',
+            dataIndex: 'query',
+            key: 'query',
+            width: 200,
+            render: (text: string) => <strong>{text}</strong>,
+        },
+        {
+            title: 'Search Volume',
+            dataIndex: 'search_volume',
+            key: 'search_volume',
+            width: 150,
+            sorter: (a: RawTrendItem, b: RawTrendItem) => {
+                const va = typeof a.search_volume === 'number' ? a.search_volume : parseFloat(String(a.search_volume ?? '0'));
+                const vb = typeof b.search_volume === 'number' ? b.search_volume : parseFloat(String(b.search_volume ?? '0'));
+                return vb - va;
+            },
+            render: (v: number | string | null) => {
+                if (v == null) return <span style={{ color: '#999' }}>—</span>;
+                const num = typeof v === 'number' ? v : parseFloat(String(v));
+                if (isNaN(num)) return <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>{v}</span>;
+                return <span style={{ fontWeight: 600 }}>{num.toLocaleString('vi-VN')}</span>;
+            },
+        },
+        {
+            title: 'Tăng trưởng',
+            dataIndex: 'increase_percentage',
+            key: 'increase_percentage',
+            width: 120,
+            sorter: (a: RawTrendItem, b: RawTrendItem) => {
+                const va = typeof a.increase_percentage === 'number' ? a.increase_percentage : parseInt(String(a.increase_percentage ?? '0'));
+                const vb = typeof b.increase_percentage === 'number' ? b.increase_percentage : parseInt(String(b.increase_percentage ?? '0'));
+                return vb - va;
+            },
+            render: (v: number | string | null) => {
+                if (v == null) return <span style={{ color: '#999' }}>—</span>;
+                const num = typeof v === 'number' ? v : parseInt(String(v).replace(/\D/g, ''));
+                if (isNaN(num)) return <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>{v}</span>;
+                return <span style={{ color: '#16a34a', fontWeight: 600 }}>+{num}%</span>;
+            },
+        },
+        {
+            title: 'Categories',
+            dataIndex: 'categories',
+            key: 'categories',
+            width: 180,
+            render: (v: string | string[] | null) => {
+                if (!v) return <span style={{ color: '#999' }}>—</span>;
+                let items: string[];
+                if (Array.isArray(v)) {
+                    items = v;
+                } else if (v.startsWith('[')) {
+                    try { items = JSON.parse(v); } catch { items = String(v).split(',').map(s => s.trim()); }
+                } else {
+                    items = String(v).split(',').map(s => s.trim());
+                }
+                if (items.length === 0) return <span style={{ color: '#999' }}>—</span>;
+                return <Tag color="blue">{items[0]}</Tag>;
+            },
+        },
+        {
+            title: 'Trend Breakdown',
+            dataIndex: 'trend_breakdown',
+            key: 'trend_breakdown',
+            width: 250,
+            ellipsis: true,
+            render: (v: string | string[] | null) => {
+                if (!v) return <span style={{ color: '#999' }}>—</span>;
+                let items: string[];
+                if (Array.isArray(v)) {
+                    items = v;
+                } else if (String(v).startsWith('[')) {
+                    try { items = JSON.parse(String(v)); } catch { items = String(v).split(',').map(s => s.trim()); }
+                } else {
+                    items = String(v).split(',').map(s => s.trim());
+                }
+                const display = items.slice(0, 3).join(', ');
+                return (
+                    <Typography.Text ellipsis={{ tooltip: items.join(' | ') }} style={{ maxWidth: 240 }}>
+                        {display}
+                    </Typography.Text>
+                );
+            },
+        },
+        {
+            title: 'Fetched At',
+            dataIndex: 'fetched_at',
+            key: 'fetched_at',
+            width: 170,
+            render: (d: string | null) =>
+                d ? new Date(d).toLocaleString('vi-VN') : <span style={{ color: '#999' }}>—</span>,
+        },
+    ];
+
+    return (
+        <div>
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+                <Col xs={24} sm={8}>
+                    <StatCard
+                        icon={<DatabaseOutlined />}
+                        title="Tổng Raw Queries"
+                        value={totalItems > 0 ? totalItems : data.length}
+                        subtitle={searched ? `Hiển thị trang ${currentPage} / ~${Math.ceil((totalItems || data.length) / PAGE_SIZE)}` : 'Trước khi Llama lọc'}
+                        color="#6366f1"
+                    />
+                </Col>
+                <Col xs={24} sm={8}>
+                    <StatCard
+                        icon={<FireOutlined />}
+                        title="Geo"
+                        value={GEO}
+                        subtitle="Khu vực"
+                        color="#f59e0b"
+                    />
+                </Col>
+                <Col xs={24} sm={8}>
+                    <StatCard
+                        icon={<RiseOutlined />}
+                        title="Data Source"
+                        value="SerpAPI"
+                        subtitle={selectedDate ? `Ngày: ${selectedDate.format('DD/MM/YYYY')}` : 'Hôm nay'}
+                        color="#10b981"
+                    />
+                </Col>
+            </Row>
+
+            <Card
+                title={
+                    <Space direction="vertical" size={0}>
+                        <Typography.Title level={4} style={{ margin: 0 }}>
+                            📊 Raw Data (Trước Llama AI)
+                        </Typography.Title>
+                        <Typography.Text type="secondary">
+                            Dữ liệu thô từ Google Trends — chưa qua bộ lọc Llama AI
+                        </Typography.Text>
+                    </Space>
+                }
+                extra={
+                    <Space>
+                        <DatePicker
+                            value={selectedDate}
+                            onChange={(d) => setSelectedDate(d)}
+                            format="DD/MM/YYYY"
+                            placeholder="Chọn ngày"
+                            disabledDate={(current) => current && current.isAfter(new Date(), 'day')}
+                        />
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={() => fetchRawTrends(selectedDate || undefined, currentPage)}
+                            disabled={loading}
+                        >
+                            Xem
+                        </Button>
+                        <Button
+                            type="primary"
+                            icon={<DatabaseOutlined />}
+                            onClick={handleFetchRawData}
+                            loading={fetching}
+                            style={{ background: '#6366f1', borderColor: '#6366f1' }}
+                        >
+                            Fetch Raw Data
+                        </Button>
+                    </Space>
+                }
+                variant="outlined"
+            >
+                    <Spin spinning={loading}>
+                    <Table
+                        rowKey={(r: RawTrendItem) => (r.id ?? r.query ?? '') + (r.fetched_at ?? '')}
+                        columns={rawColumns as any}
+                        dataSource={data}
+                        loading={loading}
+                        pagination={{
+                            current: currentPage,
+                            pageSize: PAGE_SIZE,
+                            total: totalItems,
+                            showSizeChanger: false,
+                            showTotal: (total: number) => `Tổng ${total} items`,
+                            onChange: (page) => fetchRawTrends(selectedDate || undefined, page),
+                        }}
+                        locale={{
+                            emptyText: (
+                                <div style={{ padding: '24px 0', color: '#6b7280' }}>
+                                    <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+                                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Chưa có raw data</div>
+                                    <div style={{ fontSize: '0.85rem' }}>
+                                        Bấm <strong>"Fetch Raw Data"</strong> để lấy dữ liệu thô từ Google Trends,
+                                        hoặc chọn ngày để xem data đã lưu.
+                                    </div>
+                                </div>
+                            )
+                        }}
+                        scroll={{ x: 1000 }}
+                    />
+                </Spin>
+            </Card>
+        </div>
+    );
+}
+
+// ============================================================
 // Page root
 // ============================================================
 export default function HotTrendsPage() {
@@ -642,7 +949,16 @@ export default function HotTrendsPage() {
                         ),
                         children: <InstagramTab />,
                     },
-                       {
+                    {
+                        key: 'raw',
+                        label: (
+                            <span>
+                                <DatabaseOutlined /> Raw Data
+                            </span>
+                        ),
+                        children: <RawDataTab />,
+                    },
+                    {
                         key: 'history',
                         label: (
                             <span>

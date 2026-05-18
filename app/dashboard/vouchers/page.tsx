@@ -19,6 +19,7 @@ import {
     Col,
     Statistic,
     message,
+    Spin,
 } from 'antd';
 import {
     GiftOutlined,
@@ -30,9 +31,12 @@ import {
     DeleteOutlined,
     ReloadOutlined,
     SearchOutlined,
+    UploadOutlined,
+    DeleteOutlined as DeleteImageOutlined,
 } from '@ant-design/icons';
 import { API_URL } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/auth-utils';
+import { uploadImageViaBackend } from '@/lib/cloudinary/upload';
 
 interface Voucher {
     id: number;
@@ -65,6 +69,18 @@ export default function VoucherManagerPage() {
     const [addOpen, setAddOpen] = useState<boolean>(false);
     const [editOpen, setEditOpen] = useState<boolean>(false);
     const [editVoucher, setEditVoucher] = useState<Voucher | null>(null);
+
+    // Image upload state — form Thêm
+    const [uploadingNew, setUploadingNew] = useState(false);
+    const [uploadProgressNew, setUploadProgressNew] = useState(0);
+    const [newImagePreview, setNewImagePreview] = useState<string>('');
+    const [pendingNewFile, setPendingNewFile] = useState<File | null>(null);
+
+    // Image upload state — form Sửa
+    const [uploadingEdit, setUploadingEdit] = useState(false);
+    const [uploadProgressEdit, setUploadProgressEdit] = useState(0);
+    const [editImagePreview, setEditImagePreview] = useState<string>('');
+    const [pendingEditFile, setPendingEditFile] = useState<File | null>(null);
 
     const fetchAll = async () => {
         const token = getToken();
@@ -114,6 +130,10 @@ export default function VoucherManagerPage() {
     };
 
     const handleSubmit = async () => {
+        if (uploadingNew) {
+            message.warning('Vui lòng đợi thao tác hoàn tất');
+            return;
+        }
         if (!form.code.trim()) {
             message.error('Mã voucher không thể trống');
             return;
@@ -121,33 +141,41 @@ export default function VoucherManagerPage() {
         const token = getToken();
         if (!token) return;
 
+        let imageUrl = form.imageUrl;
         try {
+            if (pendingNewFile) {
+                setUploadingNew(true);
+                setUploadProgressNew(0);
+                imageUrl = await uploadImageViaBackend(pendingNewFile, (p) =>
+                    setUploadProgressNew(p),
+                );
+            }
+
+            if (!imageUrl?.trim()) {
+                message.error('Vui lòng chọn ảnh voucher');
+                return;
+            }
+
             const res = await fetch(`${API_URL}/api/vouchers`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(form),
+                body: JSON.stringify({ ...form, imageUrl }),
             });
 
             if (!res.ok) throw new Error('Failed to create voucher');
 
             message.success('Thêm voucher thành công');
-            setForm({
-                code: '',
-                type: 'PERCENTAGE_DISCOUNT',
-                discountValue: 0,
-                minOrderAmount: 0,
-                active: true,
-                requiredPoints: 0,
-                imageUrl: '',
-            });
+            resetCreateForm();
             setAddOpen(false);
             await fetchAll();
         } catch (e) {
             console.error(e);
             message.error('Thêm thất bại');
+        } finally {
+            setUploadingNew(false);
         }
     };
 
@@ -197,32 +225,117 @@ export default function VoucherManagerPage() {
 
     const handleOpenEdit = (v: Voucher) => {
         setEditVoucher(v);
+        setEditImagePreview(v.imageUrl || '');
+        setPendingEditFile(null);
+        setUploadingEdit(false);
+        setUploadProgressEdit(0);
         setEditOpen(true);
     };
 
+    const handleFileSelect = (file: File, isEdit: boolean) => {
+        const preview = URL.createObjectURL(file);
+        if (isEdit) {
+            if (editImagePreview?.startsWith('blob:')) {
+                URL.revokeObjectURL(editImagePreview);
+            }
+            setEditImagePreview(preview);
+            setPendingEditFile(file);
+            setEditVoucher(prev => prev ? { ...prev, imageUrl: '' } : null);
+        } else {
+            if (newImagePreview?.startsWith('blob:')) {
+                URL.revokeObjectURL(newImagePreview);
+            }
+            setNewImagePreview(preview);
+            setPendingNewFile(file);
+            setForm(prev => ({ ...prev, imageUrl: '' }));
+        }
+        return false;
+    };
+
+    const removeImage = (isEdit: boolean) => {
+        if (isEdit) {
+            if (editImagePreview?.startsWith('blob:')) URL.revokeObjectURL(editImagePreview);
+            setEditImagePreview('');
+            setPendingEditFile(null);
+            setEditVoucher(prev => prev ? { ...prev, imageUrl: '' } : null);
+        } else {
+            if (newImagePreview?.startsWith('blob:')) URL.revokeObjectURL(newImagePreview);
+            setNewImagePreview('');
+            setPendingNewFile(null);
+            setForm(prev => ({ ...prev, imageUrl: '' }));
+        }
+    };
+
+    const resetCreateForm = () => {
+        if (newImagePreview?.startsWith('blob:')) URL.revokeObjectURL(newImagePreview);
+        setForm({
+            code: '',
+            type: 'PERCENTAGE_DISCOUNT',
+            discountValue: 0,
+            minOrderAmount: 0,
+            active: true,
+            requiredPoints: 0,
+            imageUrl: '',
+        });
+        setNewImagePreview('');
+        setPendingNewFile(null);
+        setUploadingNew(false);
+        setUploadProgressNew(0);
+    };
+
+    const resetEditForm = () => {
+        if (editImagePreview?.startsWith('blob:')) URL.revokeObjectURL(editImagePreview);
+        setEditVoucher(null);
+        setEditImagePreview('');
+        setPendingEditFile(null);
+        setUploadingEdit(false);
+        setUploadProgressEdit(0);
+    };
+
     const handleSaveEdit = async () => {
+        if (uploadingEdit) {
+            message.warning('Vui lòng đợi thao tác hoàn tất');
+            return;
+        }
         if (!editVoucher) return;
         const token = getToken();
         if (!token) return;
 
+        let imageUrl = editVoucher.imageUrl || '';
         try {
+            if (pendingEditFile) {
+                setUploadingEdit(true);
+                setUploadProgressEdit(0);
+                imageUrl = await uploadImageViaBackend(pendingEditFile, (p) =>
+                    setUploadProgressEdit(p),
+                );
+            }
+
+            if (!imageUrl?.trim()) {
+                message.error('Vui lòng chọn ảnh voucher');
+                return;
+            }
+
             const res = await fetch(`${API_URL}/api/vouchers/${editVoucher.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(editVoucher),
+                body: JSON.stringify({ ...editVoucher, imageUrl }),
             });
 
             if (!res.ok) throw new Error('Failed to update voucher');
 
             message.success('Cập nhật thành công');
+            resetEditForm();
             setEditOpen(false);
             await fetchAll();
         } catch (error) {
             console.error(error);
             message.error('Cập nhật thất bại');
+        } finally {
+            setUploadingEdit(false);
         }
     };
 
@@ -412,10 +525,10 @@ export default function VoucherManagerPage() {
                     title="Thêm Voucher Mới"
                     open={addOpen}
                     onOk={handleSubmit}
-                    onCancel={() => setAddOpen(false)}
+                    onCancel={() => { resetCreateForm(); setAddOpen(false); }}
                     okText="Thêm"
                     cancelText="Hủy"
-                    okButtonProps={{ style: { background: '#8b4513', borderColor: '#8b4513' } }}
+                    okButtonProps={{ style: { background: '#8b4513', borderColor: '#8b4513' }, disabled: uploadingNew }}
                     width={600}
                 >
                     <Form layout="vertical" style={{ marginTop: 24 }}>
@@ -472,8 +585,45 @@ export default function VoucherManagerPage() {
                                 </Form.Item>
                             </Col>
                         </Row>
-                        <Form.Item label="Link ảnh (URL)">
-                            <Input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://..." />
+                        <Form.Item label="Ảnh Voucher" tooltip="Chọn ảnh để xem trước; ảnh chỉ được tải lên Cloudinary khi bạn bấm Thêm">
+                            <Spin tip={`Đang tải ảnh lên Cloudinary... ${uploadProgressNew}%`} spinning={uploadingNew}>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <Button icon={<UploadOutlined />} onClick={() => document.getElementById('voucher-new-file-input')?.click()}>
+                                        Chọn ảnh
+                                    </Button>
+                                    <input
+                                        id="voucher-new-file-input"
+                                        type="file"
+                                        accept="image/*"
+                                        style={{ display: 'none' }}
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) handleFileSelect(file, false);
+                                            e.target.value = '';
+                                        }}
+                                    />
+                                    {(newImagePreview || form.imageUrl) && !uploadingNew && (
+                                        <Button danger icon={<DeleteImageOutlined />} onClick={() => removeImage(false)}>
+                                            Xóa ảnh
+                                        </Button>
+                                    )}
+                                </div>
+                                {(newImagePreview || form.imageUrl) && !uploadingNew && (
+                                    <div style={{ marginTop: 8 }}>
+                                        <img
+                                            src={newImagePreview || form.imageUrl}
+                                            alt="preview"
+                                            style={{
+                                                width: 120,
+                                                height: 120,
+                                                objectFit: 'cover',
+                                                borderRadius: 6,
+                                                border: '1px solid #d9d9d9',
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </Spin>
                         </Form.Item>
                     </Form>
                 </Modal>
@@ -482,10 +632,10 @@ export default function VoucherManagerPage() {
                     title={`Sửa Voucher: ${editVoucher?.code}`}
                     open={editOpen}
                     onOk={handleSaveEdit}
-                    onCancel={() => setEditOpen(false)}
+                    onCancel={() => { resetEditForm(); setEditOpen(false); }}
                     okText="Lưu"
                     cancelText="Hủy"
-                    okButtonProps={{ style: { background: '#8b4513', borderColor: '#8b4513' } }}
+                    okButtonProps={{ style: { background: '#8b4513', borderColor: '#8b4513' }, disabled: uploadingEdit }}
                     width={600}
                 >
                     {editVoucher && (
@@ -543,8 +693,45 @@ export default function VoucherManagerPage() {
                                     </Form.Item>
                                 </Col>
                             </Row>
-                            <Form.Item label="Link ảnh">
-                                <Input value={editVoucher.imageUrl} onChange={(e) => setEditVoucher({ ...editVoucher, imageUrl: e.target.value })} />
+                            <Form.Item label="Ảnh Voucher" tooltip="Chọn ảnh mới để xem trước; ảnh chỉ được tải lên Cloudinary khi bạn bấm Lưu">
+                                <Spin tip={`Đang tải ảnh lên Cloudinary... ${uploadProgressEdit}%`} spinning={uploadingEdit}>
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                                        <Button icon={<UploadOutlined />} onClick={() => document.getElementById('voucher-edit-file-input')?.click()}>
+                                            Chọn ảnh
+                                        </Button>
+                                        <input
+                                            id="voucher-edit-file-input"
+                                            type="file"
+                                            accept="image/*"
+                                            style={{ display: 'none' }}
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) handleFileSelect(file, true);
+                                                e.target.value = '';
+                                            }}
+                                        />
+                                        {(editImagePreview || editVoucher.imageUrl) && !uploadingEdit && (
+                                            <Button danger icon={<DeleteImageOutlined />} onClick={() => removeImage(true)}>
+                                                Xóa ảnh
+                                            </Button>
+                                        )}
+                                    </div>
+                                    {(editImagePreview || editVoucher.imageUrl) && !uploadingEdit && (
+                                        <div style={{ marginTop: 8 }}>
+                                            <img
+                                                src={editImagePreview || editVoucher.imageUrl}
+                                                alt="preview"
+                                                style={{
+                                                    width: 120,
+                                                    height: 120,
+                                                    objectFit: 'cover',
+                                                    borderRadius: 6,
+                                                    border: '1px solid #d9d9d9',
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                </Spin>
                             </Form.Item>
                         </Form>
                     )}
