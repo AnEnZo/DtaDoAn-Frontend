@@ -887,7 +887,7 @@ function RawDataTab() {
                 }
                 variant="outlined"
             >
-                    <Spin spinning={loading}>
+                <Spin spinning={loading}>
                     <Table
                         rowKey={(r: RawTrendItem) => (r.id ?? r.query ?? '') + (r.fetched_at ?? '')}
                         columns={rawColumns as any}
@@ -940,15 +940,15 @@ export default function HotTrendsPage() {
                         ),
                         children: <TodayTab />,
                     },
-                    {
-                        key: 'instagram',
-                        label: (
-                            <span>
-                                <InstagramOutlined /> Instagram
-                            </span>
-                        ),
-                        children: <InstagramTab />,
-                    },
+                    // {
+                    //     key: 'instagram',
+                    //     label: (
+                    //         <span>
+                    //             <InstagramOutlined /> Instagram
+                    //         </span>
+                    //     ),
+                    //     children: <InstagramTab />,
+                    // },
                     {
                         key: 'raw',
                         label: (
