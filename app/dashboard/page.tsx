@@ -3,10 +3,24 @@
 import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Statistic, Typography, Table, List, Avatar, InputNumber, Button, Space } from 'antd';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { API_URL } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/auth-utils';
 
 export default function DashboardPage() {
+    const router = useRouter();
+    const { user, loading } = useAuth();
+
+    useEffect(() => {
+        if (!loading && user) {
+            const isStaff = user.roles?.includes('ROLE_STAFF') ?? false;
+            if (isStaff) {
+                router.replace('/dashboard/orders');
+            }
+        }
+    }, [user, loading, router]);
+
     const [revenue7Days, setRevenue7Days] = useState<{ label: string; revenue: number }[]>([]);
     const [revLoading, setRevLoading] = useState<boolean>(false);
     const [topItems, setTopItems] = useState<
@@ -177,6 +191,12 @@ export default function DashboardPage() {
         const id = setInterval(fetchRecent, 30000);
         return () => clearInterval(id);
     }, []);
+
+    const isStaff = user?.roles?.includes('ROLE_STAFF') ?? false;
+
+    if (loading || isStaff) {
+        return <div className="min-h-screen flex items-center justify-center">Đang tải...</div>;
+    }
 
     return (
         <>

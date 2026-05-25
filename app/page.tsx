@@ -111,14 +111,14 @@ export default function LoginPage() {
               {/* Username Field */}
               <div>
                 <label htmlFor="username" className="block text-gray-700 text-sm font-medium mb-2">
-                  Tên đăng nhập hoặc Email
+                  Tên đăng nhập
                 </label>
                 <input
                   id="username"
                   type="text"
                   className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 text-gray-800 ${errors.username
-                      ? 'border-red-400 focus:border-red-500 focus:ring-red-200'
-                      : 'border-gray-300 focus:border-orange-500 focus:ring-orange-200'
+                    ? 'border-red-400 focus:border-red-500 focus:ring-red-200'
+                    : 'border-gray-300 focus:border-orange-500 focus:ring-orange-200'
                     }`}
                   style={{
                     width: '100%',
@@ -128,9 +128,9 @@ export default function LoginPage() {
                     color: '#1f2937',
                     backgroundColor: '#ffffff',
                   }}
-                  placeholder="Nhập tên đăng nhập hoặc email"
+                  placeholder="Nhập tên đăng nhập"
                   {...register('username', {
-                    required: 'Vui lòng nhập tên đăng nhập hoặc email',
+                    required: 'Vui lòng nhập tên đăng nhập ',
                     minLength: {
                       value: 3,
                       message: 'Tên đăng nhập phải có ít nhất 3 ký tự',
@@ -151,8 +151,8 @@ export default function LoginPage() {
                   id="password"
                   type="password"
                   className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 transition-all duration-300 text-gray-800 ${errors.password
-                      ? 'border-red-400 focus:border-red-500 focus:ring-red-200'
-                      : 'border-gray-300 focus:border-orange-500 focus:ring-orange-200'
+                    ? 'border-red-400 focus:border-red-500 focus:ring-red-200'
+                    : 'border-gray-300 focus:border-orange-500 focus:ring-orange-200'
                     }`}
                   style={{
                     width: '100%',
@@ -180,8 +180,8 @@ export default function LoginPage() {
               {message && (
                 <div
                   className={`text-center p-3 rounded-lg text-sm ${message.includes('thành công')
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-red-100 text-red-700'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-red-100 text-red-700'
                     }`}
                 >
                   {message}

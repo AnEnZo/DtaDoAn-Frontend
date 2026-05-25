@@ -54,7 +54,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             return '/dashboard';
         }
         if (roles.includes('ROLE_STAFF') || roles.includes('STAFF')) {
-            return '/home';
+            return '/dashboard/orders';
         }
         return '/home';
     },

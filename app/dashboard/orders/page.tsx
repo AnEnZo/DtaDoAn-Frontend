@@ -224,7 +224,12 @@ export default function OrdersPage() {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            render: (s: string) => <Tag color={s === 'SERVED' ? 'green' : 'orange'}>{s}</Tag>,
+            render: (s: string) => {
+                let color = 'orange';
+                if (s === 'PENDING') color = 'green';
+                else if (s === 'PAID') color = 'blue';
+                return <Tag color={color}>{s}</Tag>;
+            },
         },
         { title: 'Table', key: 'table', render: (_: any, r: Order) => r.table?.name || '-' },
         { title: 'Staff', key: 'staff', render: (_: any, r: Order) => r.staff.displayName },

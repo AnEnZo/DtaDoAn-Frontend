@@ -1402,3 +1402,85 @@ h1 {
   filter: brightness(1.05);
   text-decoration: none;
 }
+
+/* ========================================== */
+/* Form Input Validation States (Pattern 5) */
+/* ========================================== */
+
+.form-field-group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.form-input-wrapper {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  outline: none;
+  background-color: #ffffff;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Idle state */
+.form-input.field--idle {
+  border: 1px solid #d1d5db;
+  color: #1f2937;
+}
+.form-input.field--idle:focus {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15);
+}
+
+/* Error state */
+.form-input.field--error {
+  border: 1px solid #ef4444;
+  color: #991b1b;
+  background-color: #fef2f2;
+}
+.form-input.field--error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+/* Success state */
+.form-input.field--success {
+  border: 1px solid #22c55e;
+  color: #166534;
+  background-color: #f0fdf4;
+}
+.form-input.field--success:focus {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15);
+}
+
+/* Messages below inputs */
+.field-message {
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.field-message--idle {
+  color: #6b7280;
+}
+
+.field-message--error {
+  color: #ef4444;
+}
+
+.field-message--success {
+  color: #22c55e;
+}

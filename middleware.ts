@@ -12,8 +12,8 @@ const publicRoutes = ['/', '/login', '/register', '/home', '/oauth2-redirect', '
 const roleRedirects: Record<string, string> = {
   'ROLE_ADMIN': '/dashboard',
   'ADMIN': '/dashboard',
-  'ROLE_STAFF': '/home',
-  'STAFF': '/home',
+  'ROLE_STAFF': '/dashboard/orders',
+  'STAFF': '/dashboard/orders',
   'ROLE_USER': '/home',
   'USER': '/home',
 };
@@ -110,9 +110,25 @@ export function middleware(request: NextRequest) {
 
     // Check for stored redirect URI (from protected route redirect)
     const storedRedirect = request.cookies.get('redirect_uri')?.value;
-    if (storedRedirect && pathname === '/home') {
+    if (storedRedirect && (pathname === '/home' || pathname === '/dashboard' || pathname === '/dashboard/orders')) {
         // User just logged in, redirect to stored destination
         const redirectUrl = new URL(storedRedirect, request.url);
+        
+        // Safety check: if user is staff and trying to access admin dashboard homepage, redirect to orders instead
+        const payload = token ? decodeJwt(token) : null;
+        const role = payload ? getUserRole(payload) : null;
+        const isStaff = role === 'ROLE_STAFF' || role === 'STAFF';
+        if (isStaff && redirectUrl.pathname === '/dashboard') {
+            redirectUrl.pathname = '/dashboard/orders';
+        }
+
+        // If the redirect path is the same as current path, just delete cookie and proceed
+        if (redirectUrl.pathname === pathname) {
+            const response = NextResponse.next();
+            response.cookies.delete('redirect_uri');
+            return response;
+        }
+
         const response = NextResponse.redirect(redirectUrl);
         response.cookies.delete('redirect_uri');
         return response;

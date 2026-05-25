@@ -52,6 +52,23 @@ export default function UserPage() {
     const [editRole, setEditRole] = useState<'USER' | 'STAFF' | null>(null);
     const [editingIsAdmin, setEditingIsAdmin] = useState<boolean>(false);
 
+    useEffect(() => {
+        if (showForm) {
+            form.setFieldsValue({
+                displayName: formUser.displayName,
+                email: formUser.email,
+                phoneNumber: formUser.phoneNumber,
+                username: formUser.username,
+                password: formUser.password,
+                provider: formUser.provider,
+                role: !isEdit ? newRole : undefined,
+                editRole: isEdit ? editRole : undefined,
+            });
+        } else {
+            form.resetFields();
+        }
+    }, [showForm, formUser, isEdit, newRole, editRole, form]);
+
     const [pagination, setPagination] = useState({
         current: 1,
         pageSize: 10,
@@ -146,14 +163,16 @@ export default function UserPage() {
                 if (values.editRole) {
                     payload.role = values.editRole;
                 }
-                // Update User API does not accept password anymore
+                // Update User API does not accept password or provider
                 delete payload.password;
+                delete payload.provider;
             } else {
                 if (values.role === 'STAFF') {
                     url = `${API_URL}/api/users/staff`;
                 } else {
                     url = `${API_URL}/api/users/user`;
                 }
+                payload.provider = 'LOCAL';
             }
 
             const method = isEdit ? 'PUT' : 'POST';
@@ -393,15 +412,7 @@ export default function UserPage() {
                             />
                         </Form.Item>
                     )}
-                    <Form.Item label="Provider" name="provider" initialValue={formUser.provider}>
-                        <Select
-                            options={[
-                                { label: 'LOCAL', value: 'LOCAL' },
-                                { label: 'GOOGLE', value: 'GOOGLE' },
-                                { label: 'FACEBOOK', value: 'FACEBOOK' },
-                            ]}
-                        />
-                    </Form.Item>
+
                 </Form>
             </Modal>
         </Card>
