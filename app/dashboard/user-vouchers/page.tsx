@@ -186,7 +186,7 @@ export default function UserVoucherManagerPage() {
     };
 
     return (
-        <div style={{ padding: 24 }}>
+        <div className="vouchers-page-container">
             <div style={{ maxWidth: 1400, margin: '0 auto' }}>
                 {/* Header with Points */}
                 <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
@@ -212,37 +212,47 @@ export default function UserVoucherManagerPage() {
 
                 {/* Controls */}
                 <Card style={{ marginBottom: 24, borderRadius: 12, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
-                    <Space wrap style={{ width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Space wrap>
-                            {isUserOnly && (
-                                <Link href="/home">
-                                    <Button icon={<HomeOutlined />} size="large" style={{ background: '#8b4513', color: 'white', border: 'none' }}>
-                                        Về Trang chủ
+                    <Row gutter={[16, 16]} align="middle" justify="space-between">
+                        <Col xs={24} md={18}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+                                {isUserOnly && (
+                                    <Link href="/home" style={{ width: 'auto' }}>
+                                        <Button icon={<HomeOutlined />} size="large" style={{ background: '#8b4513', color: 'white', border: 'none', width: '100%' }}>
+                                            Về Trang chủ
+                                        </Button>
+                                    </Link>
+                                )}
+                                <div style={{ display: 'flex', gap: 8, flex: '1 1 auto', minWidth: 200, maxWidth: '100%' }}>
+                                    <Input
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        placeholder="Tìm voucher..."
+                                        allowClear
+                                        prefix={<SearchOutlined />}
+                                        style={{ flex: 1 }}
+                                        onPressEnter={handleSearch}
+                                    />
+                                    <Button onClick={handleSearch} icon={<SearchOutlined />} type="primary" style={{ background: '#8b4513', borderColor: '#8b4513' }}>
+                                        Tìm
                                     </Button>
-                                </Link>
-                            )}
-                            <Input
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Tìm voucher..."
-                                allowClear
-                                prefix={<SearchOutlined />}
-                                style={{ width: 220 }}
-                                onPressEnter={handleSearch}
-                            />
-                            <Button onClick={handleSearch} icon={<SearchOutlined />}>Tìm</Button>
-                            <Button onClick={fetchAll} icon={<ReloadOutlined />}>Làm mới</Button>
-                        </Space>
-                        <Button
-                            type="primary"
-                            size="large"
-                            icon={<QrcodeOutlined />}
-                            onClick={fetchUsedVouchers}
-                            style={{ background: '#cd853f', borderColor: '#cd853f' }}
-                        >
-                            Xem voucher đã đổi
-                        </Button>
-                    </Space>
+                                </div>
+                                <Button onClick={fetchAll} icon={<ReloadOutlined />} style={{ flex: '0 0 auto' }}>
+                                    Làm mới
+                                </Button>
+                            </div>
+                        </Col>
+                        <Col xs={24} md={6}>
+                            <Button
+                                type="primary"
+                                size="large"
+                                icon={<QrcodeOutlined />}
+                                onClick={fetchUsedVouchers}
+                                style={{ background: '#cd853f', borderColor: '#cd853f', width: '100%' }}
+                            >
+                                Xem voucher đã đổi
+                            </Button>
+                        </Col>
+                    </Row>
                     {msg && <Alert type="success" message={msg} showIcon style={{ marginTop: 12 }} closable />}
                     {error && <Alert type="error" message={error} showIcon style={{ marginTop: 12 }} closable />}
                 </Card>

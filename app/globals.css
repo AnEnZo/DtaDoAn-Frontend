@@ -1484,3 +1484,265 @@ h1 {
 .field-message--success {
   color: #22c55e;
 }
+
+/* ========================================= */
+/* MOBILE RESPONSIVE UPDATES & LAYOUT CODES  */
+/* ========================================= */
+
+/* Safe Area Insets & Fluid Typography */
+.hero {
+  min-height: 100dvh !important;
+}
+
+.hero h1 {
+  font-size: clamp(2.25rem, 8vw, 4rem) !important;
+}
+
+.hero p {
+  font-size: clamp(1rem, 3.5vw, 1.5rem) !important;
+}
+
+/* Mobile Navbar Overrides */
+@media (max-width: 768px) {
+  .roles {
+    padding: 0.75rem 1rem !important;
+  }
+  .roles.scrolled {
+    padding: 0.5rem 1rem !important;
+  }
+  .roles .nav-links,
+  .roles .nav-actions {
+    display: none !important;
+  }
+  .mobile-menu-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+    z-index: 10001;
+    color: #fff;
+    font-size: 1.75rem;
+    transition: color 0.3s ease;
+  }
+  .roles.scrolled .mobile-menu-toggle {
+    color: #333;
+  }
+}
+
+/* Fallback state for mobile-menu-toggle on desktop */
+.mobile-menu-toggle {
+  display: none;
+}
+
+/* Mobile Navigation Drawer Overlay */
+.mobile-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 9998;
+  backdrop-filter: blur(4px);
+}
+
+/* Mobile Navigation Drawer Panel */
+.mobile-drawer-content {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 300px;
+  max-width: 85%;
+  background: #fff;
+  z-index: 9999;
+  padding: 5rem 1.5rem 2rem;
+  box-shadow: -4px 0 30px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.mobile-drawer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mobile-drawer-link {
+  color: #4b5563;
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px; /* Increased gap slightly for better icon alignment */
+}
+
+.mobile-drawer-link:hover,
+.mobile-drawer-link.active {
+  background: #fff7ed;
+  color: #d97706;
+}
+
+.mobile-drawer-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-block;
+  background-color: currentColor;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  flex-shrink: 0;
+}
+
+.mobile-drawer-actions {
+  margin-top: auto;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mobile-drawer-actions .auth-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.mobile-drawer-actions .auth-info span {
+  color: #4b5563;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.mobile-drawer-actions .btn-primary.small {
+  width: 100%;
+  margin-left: 0 !important;
+  text-align: center;
+  padding: 0.75rem 1.5rem;
+  font-weight: 700;
+  border-radius: 50px;
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  color: #fff;
+  border: none;
+}
+
+.mobile-drawer-actions .auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.mobile-drawer-actions .auth-actions .btn-login,
+.mobile-drawer-actions .auth-actions .btn-outline {
+  width: 100%;
+  text-align: center;
+  display: block;
+}
+
+.mobile-drawer-actions .auth-actions .btn-login {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  color: #fff;
+  border-color: #d97706;
+}
+
+.mobile-drawer-actions .auth-actions .btn-outline {
+  border-color: #d97706;
+  color: #d97706;
+}
+
+.mobile-drawer-actions .auth-actions .btn-outline:hover {
+  background: rgba(217, 119, 6, 0.1);
+}
+
+/* Category Sidebar Responsive Horizontal Slider */
+@media (max-width: 768px) {
+  .category-sidebar {
+    position: static !important;
+    padding: 14px !important;
+    border-radius: 12px !important;
+    margin-bottom: 16px !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .category-sidebar-title {
+    font-size: 1.1rem !important;
+    margin-bottom: 10px !important;
+  }
+
+  .category-sidebar .ant-list {
+    overflow: visible !important;
+  }
+
+  /* Horizontal Overflow Scrollable List for Ant Design */
+  .category-sidebar .ant-list-items {
+    display: flex !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* IE/Edge */
+    gap: 8px !important;
+    padding-bottom: 4px !important;
+  }
+
+  .category-sidebar .ant-list-items::-webkit-scrollbar {
+    display: none !important; /* Safari & Chrome */
+  }
+
+  .category-item {
+    margin-bottom: 0 !important;
+    padding: 8px 16px !important;
+    flex: 0 0 auto !important; /* Prevent squeezing */
+    border-radius: 20px !important; /* Pill style */
+  }
+
+  .category-item:hover {
+    transform: none !important;
+  }
+
+  .category-item.selected {
+    transform: none !important;
+  }
+
+  .category-item.selected span:last-child {
+    display: none !important;
+  }
+}
+
+/* Suggestion Form mobile layout */
+@media (max-width: 768px) {
+  .food-suggestion {
+    padding: 2rem 1.25rem !important;
+    margin: 2rem 1rem !important;
+    border-radius: 12px !important;
+  }
+}
+
+/* Login Card Padding tuning */
+@media (max-width: 480px) {
+  .login-card-padding-override {
+    padding: 1.5rem !important;
+    border-radius: 16px !important;
+  }
+}
+
+/* Vouchers Page Mobile Padding Container */
+.vouchers-page-container {
+  padding: 24px;
+}
+@media (max-width: 576px) {
+  .vouchers-page-container {
+    padding: 12px !important;
+  }
+}

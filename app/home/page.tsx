@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { getToken } from '@/lib/auth/auth-utils';
 import TopItems from '@/components/TopItems';
 import FeaturedItems from '@/components/FeaturedItems';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 import { API_URL } from '@/lib/api/client';
 
 // Animation variants
@@ -56,6 +56,7 @@ export default function HomePage() {
 
     // Navbar scroll effect
     const [scrolled, setScrolled] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     useEffect(() => {
         const handleScroll = () => {
@@ -287,8 +288,108 @@ export default function HomePage() {
                             </div>
                         )}
                     </motion.div>
+
+                    {/* Nút Hamburger cho Mobile */}
+                    <button
+                        className="mobile-menu-toggle"
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        aria-label="Toggle Menu"
+                    >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            {isMobileMenuOpen ? (
+                                <>
+                                    <line x1="18" y1="6" x2="6" y2="18" />
+                                    <line x1="6" y1="6" x2="18" y2="18" />
+                                </>
+                            ) : (
+                                <>
+                                    <line x1="3" y1="12" x2="21" y2="12" />
+                                    <line x1="3" y1="6" x2="21" y2="6" />
+                                    <line x1="3" y1="18" x2="21" y2="18" />
+                                </>
+                            )}
+                        </svg>
+                    </button>
                 </motion.div>
             </motion.section>
+
+            {/* Mobile Navigation Drawer */}
+            <AnimatePresence>
+                {isMobileMenuOpen && (
+                    <>
+                        <motion.div
+                            className="mobile-drawer-overlay"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setIsMobileMenuOpen(false)}
+                        />
+                        <motion.div
+                            className="mobile-drawer-content"
+                            initial={{ x: '100%' }}
+                            animate={{ x: 0 }}
+                            exit={{ x: '100%' }}
+                            transition={{ type: 'tween', duration: 0.3, ease: 'easeOut' }}
+                        >
+                            <div className="mobile-drawer-links">
+                                <Link href="/menu" className="mobile-drawer-link" onClick={() => setIsMobileMenuOpen(false)}>
+                                    <span className="mobile-drawer-icon" style={{ maskImage: 'url(/assets/restaurant-plate-svgrepo-com.svg)', WebkitMaskImage: 'url(/assets/restaurant-plate-svgrepo-com.svg)' }} />
+                                    Thực Đơn
+                                </Link>
+                                <Link href="/home#about" className="mobile-drawer-link" onClick={() => setIsMobileMenuOpen(false)}>
+                                    <span className="mobile-drawer-icon" style={{ maskImage: 'url(/assets/about-us-svgrepo-com.svg)', WebkitMaskImage: 'url(/assets/about-us-svgrepo-com.svg)' }} />
+                                    Về Chúng Tôi
+                                </Link>
+                                <Link href="/home#contact" className="mobile-drawer-link" onClick={() => setIsMobileMenuOpen(false)}>
+                                    <span className="mobile-drawer-icon" style={{ maskImage: 'url(/assets/contact-information-help-svgrepo-com.svg)', WebkitMaskImage: 'url(/assets/contact-information-help-svgrepo-com.svg)' }} />
+                                    Liên Hệ
+                                </Link>
+                                {user && (
+                                    <>
+                                        <Link href="/profile" className="mobile-drawer-link" onClick={() => setIsMobileMenuOpen(false)}>
+                                            <span className="mobile-drawer-icon" style={{ maskImage: 'url(/assets/user-svgrepo-com.svg)', WebkitMaskImage: 'url(/assets/user-svgrepo-com.svg)' }} />
+                                            Cá Nhân
+                                        </Link>
+                                        <Link href="/profile/vouchers" className="mobile-drawer-link" onClick={() => setIsMobileMenuOpen(false)}>
+                                            <span className="mobile-drawer-icon" style={{ maskImage: 'url(/assets/voucher-svgrepo-com.svg)', WebkitMaskImage: 'url(/assets/voucher-svgrepo-com.svg)' }} />
+                                            Voucher
+                                        </Link>
+                                    </>
+                                )}
+                            </div>
+
+                            <div className="mobile-drawer-actions">
+                                {user ? (
+                                    <div className="auth-info">
+                                        <span>
+                                            Xin chào,<br />
+                                            <strong>{String(user.displayName || user.sub || 'Quý khách')}</strong>
+                                        </span>
+                                        <button
+                                            onClick={() => {
+                                                setIsMobileMenuOpen(false);
+                                                handleLogout();
+                                            }}
+                                            className="btn-primary small"
+                                        >
+                                            Đăng xuất
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="auth-actions">
+                                        <Link href="/" className="btn-login" onClick={() => setIsMobileMenuOpen(false)}>
+                                            Đăng Nhập
+                                        </Link>
+                                        <Link href="/register" className="btn-outline" onClick={() => setIsMobileMenuOpen(false)}>
+                                            Đăng Ký
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* Hero Section with Enhanced Carousel */}
             <motion.header className="hero">
