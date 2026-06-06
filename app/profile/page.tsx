@@ -19,7 +19,7 @@ import {
 } from 'antd';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { HomeOutlined } from '@ant-design/icons';
+import { HomeOutlined, GiftOutlined } from '@ant-design/icons';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { API_URL } from '@/lib/api/client';
 import { getToken } from '@/lib/auth/auth-utils';
@@ -267,6 +267,13 @@ export default function ProfilePage() {
                                     ))}
                                     <Tag color="gold">Điểm: {user.rewardPoints}</Tag>
                                 </div>
+                                {isUserOnly && (
+                                    <Link href="/profile/vouchers" style={{ width: '100%', marginTop: 12 }}>
+                                        <Button type="dashed" icon={<GiftOutlined />} block style={{ background: '#fff7ed', border: '1px dashed #ea580c', color: '#ea580c', fontWeight: 600 }}>
+                                            Voucher cá nhân / Đổi quà
+                                        </Button>
+                                    </Link>
+                                )}
                             </div>
                         </Card>
                     </Col>

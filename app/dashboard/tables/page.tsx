@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Space, Switch, Modal, Form, Input, InputNumber, Tag, message } from 'antd';
+import { Card, Table, Button, Space, Switch, Modal, Form, Input, InputNumber, Tag, App } from 'antd';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { API_URL } from '@/lib/api/client';
@@ -15,6 +15,7 @@ interface TableData {
 }
 
 export default function TablesPage() {
+    const { message } = App.useApp();
     const { roles } = useAuth();
     const isAdmin = roles.includes('ROLE_ADMIN');
     const isStaff = roles.includes('ROLE_STAFF');
@@ -25,24 +26,37 @@ export default function TablesPage() {
     const [createOpen, setCreateOpen] = useState<boolean>(false);
     const [form] = Form.useForm<{ name: string; capacity: number; available: boolean }>();
 
-    useEffect(() => {
-        const fetchTables = async () => {
-            const token = getToken();
-            if (!token) return;
+    const fetchTables = async () => {
+        const token = getToken();
+        if (!token) return;
 
-            try {
-                const response = await fetch(`${API_URL}/api/tables`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    setTables(data);
-                }
-            } catch (error) {
-                console.error('Lỗi khi tải danh sách bàn:', error);
+        try {
+            const response = await fetch(`${API_URL}/api/tables`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setTables(data);
+            }
+        } catch (error) {
+            console.error('Lỗi khi tải danh sách bàn:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchTables();
+
+        // Refetch khi user quay lại trang (navigate back / switch tab)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchTables();
             }
         };
-        fetchTables();
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
     }, []);
 
     const createTable = async () => {

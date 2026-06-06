@@ -56,7 +56,7 @@ export default function ForgotPasswordEmailPage() {
                 >
                     <div className="text-center mb-6">
                         <Image
-                            src="/logoTheCoffeHouse.png"
+                            src="/assets/logoTheCoffeHouse.png"
                             alt="The Coffee House"
                             width={220}
                             height={100}

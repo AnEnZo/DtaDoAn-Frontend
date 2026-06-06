@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Avatar, Button, Typography, theme } from 'antd';
+import { Layout, Menu, Avatar, Button, Typography, App } from 'antd';
 import {
     DashboardOutlined,
     AppstoreOutlined,
@@ -17,6 +17,7 @@ import {
     MenuUnfoldOutlined,
     BulbOutlined,
     FireOutlined,
+    MailOutlined,
 } from '@ant-design/icons';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -57,6 +58,7 @@ export default function DashboardLayout({
         if (path.includes('/dashboard/categories')) return { key: 'categories', title: 'Quản Lý Danh Mục', subtitle: 'Quản lý các danh mục sản phẩm' };
         if (path.includes('/dashboard/foods')) return { key: 'foods', title: 'Quản Lý Món Ăn', subtitle: 'Quản lý thực đơn và món ăn' };
         if (path.includes('/dashboard/food-suggestions')) return { key: 'food-suggestions', title: 'Quản Lý Gợi Ý Món Ăn', subtitle: 'Xem gợi ý món ăn từ khách hàng' };
+        if (path.includes('/dashboard/contacts')) return { key: 'contacts', title: 'Quản Lý Liên Hệ', subtitle: 'Xem và quản lý các liên hệ từ khách hàng' };
         if (path.includes('/dashboard/tables')) return { key: 'tables', title: 'Quản Lý Bàn', subtitle: 'Theo dõi trạng thái các bàn' };
         if (path.includes('/dashboard/orders')) return { key: 'orders', title: 'Quản Lý Đơn Hàng', subtitle: 'Xử lý và theo dõi đơn hàng' };
         if (path.includes('/dashboard/invoices')) return { key: 'invoices', title: 'Quản Lý Hóa Đơn', subtitle: 'Quản lý hóa đơn thanh toán' };
@@ -91,6 +93,7 @@ export default function DashboardLayout({
             { key: 'categories', icon: <AppstoreOutlined />, label: 'Danh Mục', onClick: () => router.push('/dashboard/categories') },
             { key: 'foods', icon: <CoffeeOutlined />, label: 'Món Ăn', onClick: () => router.push('/dashboard/foods') },
             { key: 'food-suggestions', icon: <BulbOutlined />, label: 'Gợi Ý Món Ăn', onClick: () => router.push('/dashboard/food-suggestions') },
+            { key: 'contacts', icon: <MailOutlined />, label: 'Liên Hệ', onClick: () => router.push('/dashboard/contacts') },
             { key: 'hot-trends', icon: <FireOutlined />, label: 'Hot Trends', onClick: () => router.push('/dashboard/hot-trends') },
             { key: 'tables', icon: <AppstoreAddOutlined />, label: 'Bàn', onClick: () => router.push('/dashboard/tables') },
             { key: 'orders', icon: <ShoppingCartOutlined />, label: 'Đơn Hàng', onClick: () => router.push('/dashboard/orders') },
@@ -108,7 +111,8 @@ export default function DashboardLayout({
         ];
 
     return (
-        <Layout style={{ minHeight: '100vh' }}>
+        <App>
+            <Layout style={{ minHeight: '100vh' }}>
             <Sider
                 collapsible
                 collapsed={collapsed}
@@ -185,6 +189,7 @@ export default function DashboardLayout({
                     </div>
                 </Content>
             </Layout>
-        </Layout>
+            </Layout>
+        </App>
     );
 }

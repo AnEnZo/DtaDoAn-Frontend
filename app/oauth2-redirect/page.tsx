@@ -11,9 +11,12 @@ export default function OAuth2RedirectPage() {
 
     useEffect(() => {
         const token = searchParams.get('token');
+        const error = searchParams.get('error');
         if (token) {
             login(token);
             router.push('/home');
+        } else if (error) {
+            router.push(`/?error=${encodeURIComponent(error)}`);
         } else {
             router.push('/');
         }

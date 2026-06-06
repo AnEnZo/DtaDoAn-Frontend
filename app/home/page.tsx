@@ -9,6 +9,7 @@ import { getToken } from '@/lib/auth/auth-utils';
 import TopItems from '@/components/TopItems';
 import FeaturedItems from '@/components/FeaturedItems';
 import { motion, useScroll, useTransform } from 'framer-motion';
+import { API_URL } from '@/lib/api/client';
 
 // Animation variants
 const fadeInUp = {
@@ -80,13 +81,52 @@ export default function HomePage() {
     const [contactName, setContactName] = useState('');
     const [contactEmail, setContactEmail] = useState('');
     const [contactMessage, setContactMessage] = useState('');
+    const [isSubmittingContact, setIsSubmittingContact] = useState(false);
 
-    const handleContactSubmit = (e: React.FormEvent) => {
+    const handleContactSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        alert(`Cảm ơn ${contactName}! Chúng tôi đã nhận được liên hệ của bạn.`);
-        setContactName('');
-        setContactEmail('');
-        setContactMessage('');
+
+        if (!contactName.trim() || !contactEmail.trim() || !contactMessage.trim()) {
+            alert('Vui lòng nhập đầy đủ thông tin');
+            return;
+        }
+
+        setIsSubmittingContact(true);
+        try {
+            const response = await fetch(`${API_URL}/api/contacts`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    name: contactName.trim(),
+                    email: contactEmail.trim(),
+                    message: contactMessage.trim(),
+                }),
+            });
+
+            if (response.ok) {
+                alert(`Cảm ơn ${contactName}! Chúng tôi đã nhận được liên hệ của bạn.`);
+                setContactName('');
+                setContactEmail('');
+                setContactMessage('');
+            } else {
+                const rawText = await response.text();
+                let errorMessage = 'Không thể gửi liên hệ';
+                try {
+                    const errorJson = JSON.parse(rawText);
+                    errorMessage = errorJson.message || errorJson.error || errorMessage;
+                } catch {
+                    if (rawText) errorMessage = rawText;
+                }
+                alert(`Lỗi: ${errorMessage}`);
+            }
+        } catch (error) {
+            console.error('Error submitting contact:', error);
+            alert('Có lỗi xảy ra khi gửi liên hệ. Vui lòng thử lại!');
+        } finally {
+            setIsSubmittingContact(false);
+        }
     };
 
     // Food suggestion form (only for logged-in users)
@@ -205,6 +245,13 @@ export default function HomePage() {
                             <motion.div {...navItem}>
                                 <Link href="/profile" className="nav-link with-icon">
                                     Thông Tin Cá Nhân
+                                </Link>
+                            </motion.div>
+                        )}
+                        {user && (
+                            <motion.div {...navItem}>
+                                <Link href="/profile/vouchers" className="nav-link with-icon">
+                                    Voucher Cá Nhân
                                 </Link>
                             </motion.div>
                         )}
@@ -641,6 +688,7 @@ export default function HomePage() {
                                 onChange={(e) => setContactName(e.target.value)}
                                 placeholder="Nhập họ và tên"
                                 required
+                                disabled={isSubmittingContact}
                             />
                         </motion.div>
                         <motion.div
@@ -658,6 +706,7 @@ export default function HomePage() {
                                 onChange={(e) => setContactEmail(e.target.value)}
                                 placeholder="you@example.com"
                                 required
+                                disabled={isSubmittingContact}
                             />
                         </motion.div>
                         <motion.div
@@ -675,18 +724,20 @@ export default function HomePage() {
                                 onChange={(e) => setContactMessage(e.target.value)}
                                 placeholder="Tin nhắn của bạn..."
                                 required
+                                disabled={isSubmittingContact}
                             />
                         </motion.div>
                         <motion.button
                             type="submit"
                             className="btn-submit"
+                            disabled={isSubmittingContact}
                             initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ duration: 0.5, delay: 0.6 }}
                             {...scaleHover}
                         >
-                            Gửi liên hệ
+                            {isSubmittingContact ? 'Đang gửi...' : 'Gửi liên hệ'}
                         </motion.button>
                     </motion.form>
                 </motion.div>

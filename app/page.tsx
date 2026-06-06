@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
@@ -20,8 +20,16 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
   const { login: storeLogin, getRedirectPath } = useAuthStore();
+
+  React.useEffect(() => {
+    const errorParam = searchParams.get('error');
+    if (errorParam) {
+      setMessage(errorParam);
+    }
+  }, [searchParams]);
 
   const {
     register,
@@ -58,7 +66,13 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error('Đăng nhập thất bại');
+      if (!res.ok) {
+        const errorText = await res.text();
+        if (res.status === 403 && errorText.includes('vô hiệu hóa')) {
+          throw new Error('Tài khoản của bạn đã bị vô hiệu hóa.');
+        }
+        throw new Error('Tên đăng nhập hoặc mật khẩu không chính xác.');
+      }
       const responseData = await res.json();
 
       handleLoginSuccess(responseData.token);

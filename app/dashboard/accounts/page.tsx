@@ -28,6 +28,7 @@ interface User {
     rewardPoints: number;
     username: string;
     roles: string[];
+    status?: 'ACTIVE' | 'INACTIVE';
 }
 
 export default function UserPage() {
@@ -105,22 +106,21 @@ export default function UserPage() {
         fetchUsers(newPagination.current, newPagination.pageSize);
     };
 
-    const handleDeleteUser = async (id: number) => {
+    const handleUpdateUserStatus = async (id: number, status: 'ACTIVE' | 'INACTIVE') => {
         const token = getToken();
         if (!token) return;
 
         try {
-            const res = await fetch(`${API_URL}/api/users/${id}`, {
-                method: 'DELETE',
+            const res = await fetch(`${API_URL}/api/users/${id}/status?status=${status}`, {
+                method: 'PUT',
                 headers: { Authorization: `Bearer ${token}` },
             });
-            if (!res.ok) throw new Error('Failed to delete user');
-            // Reload current page
+            if (!res.ok) throw new Error('Failed to update status');
             fetchUsers(pagination.current, pagination.pageSize);
-            message.success('Xoá người dùng thành công');
+            message.success(status === 'ACTIVE' ? 'Kích hoạt người dùng thành công' : 'Vô hiệu hóa người dùng thành công');
         } catch (error) {
-            console.error('Lỗi khi xoá người dùng:', error);
-            message.error('Lỗi khi xoá người dùng.');
+            console.error('Lỗi khi cập nhật trạng thái người dùng:', error);
+            message.error(status === 'ACTIVE' ? 'Lỗi khi kích hoạt người dùng.' : 'Lỗi khi vô hiệu hóa người dùng.');
         }
     };
 
@@ -260,6 +260,15 @@ export default function UserPage() {
                 </>
             ),
         },
+        {
+            title: 'Trạng thái',
+            dataIndex: 'status',
+            key: 'status',
+            render: (status: string) => {
+                const color = status === 'INACTIVE' ? 'red' : 'green';
+                return <Tag color={color}>{status || 'ACTIVE'}</Tag>;
+            },
+        },
         { title: 'Điểm thưởng', dataIndex: 'rewardPoints', key: 'rewardPoints' },
         {
             title: 'Hành động',
@@ -270,11 +279,19 @@ export default function UserPage() {
                         Sửa
                     </Button>
                     {!(Array.isArray(r.roles) && r.roles.some((role) => role.includes('ADMIN'))) && (
-                        <Popconfirm title="Xoá người dùng này?" onConfirm={() => handleDeleteUser(r.id)}>
-                            <Button size="small" danger>
-                                Xoá
-                            </Button>
-                        </Popconfirm>
+                        r.status === 'INACTIVE' ? (
+                            <Popconfirm title="Kích hoạt người dùng này?" onConfirm={() => handleUpdateUserStatus(r.id, 'ACTIVE')}>
+                                <Button size="small" type="primary" ghost style={{ color: '#1890ff', borderColor: '#1890ff' }}>
+                                    Kích hoạt
+                                </Button>
+                            </Popconfirm>
+                        ) : (
+                            <Popconfirm title="Vô hiệu hóa người dùng này?" onConfirm={() => handleUpdateUserStatus(r.id, 'INACTIVE')}>
+                                <Button size="small" danger>
+                                    Vô hiệu hóa
+                                </Button>
+                            </Popconfirm>
+                        )
                     )}
                 </>
             ),

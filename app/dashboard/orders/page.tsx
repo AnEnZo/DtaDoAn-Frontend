@@ -13,7 +13,7 @@ import {
     Typography,
     DatePicker,
     Select,
-    message,
+    App,
 } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import { API_URL } from '@/lib/api/client';
@@ -48,6 +48,7 @@ interface PageResponse<T> {
 }
 
 export default function OrdersPage() {
+    const { message } = App.useApp();
     const [orders, setOrders] = useState<Order[]>([]);
     const [page, setPage] = useState(0);
     const [size] = useState(10);
@@ -203,11 +204,20 @@ export default function OrdersPage() {
                 fetchOrders();
                 message.success('Đã xóa đơn hàng');
             } else {
-                message.error('Unable to delete order');
+                // Đọc body dưới dạng text trước (backend trả text/plain chứa JSON)
+                let errorMsg = 'Không thể xóa đơn hàng';
+                try {
+                    const text = await res.text();
+                    const errData = JSON.parse(text);
+                    if (errData?.message) errorMsg = errData.message;
+                } catch {
+                    // giữ nguyên errorMsg mặc định
+                }
+                message.error(errorMsg, 5);
             }
         } catch (e) {
             console.error(e);
-            message.error('Unable to delete order');
+            message.error('Không thể xóa đơn hàng. Vui lòng thử lại.');
         }
     };
 
