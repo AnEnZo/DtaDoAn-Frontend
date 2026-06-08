@@ -1746,3 +1746,54 @@ h1 {
     padding: 12px !important;
   }
 }
+
+/* ========================================= */
+/* HTML5 QR CODE SCANNER CUSTOM STYLES       */
+/* ========================================= */
+#qr-reader {
+  border: none !important;
+}
+
+#qr-reader__dashboard {
+  padding: 16px !important;
+  background-color: #fafafa !important;
+  border-radius: 12px !important;
+  border: 1px dashed #d9d9d9 !important;
+}
+
+#qr-reader button {
+  background-color: #8b4513 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 10px 20px !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 4px 10px rgba(139, 69, 19, 0.2) !important;
+  margin: 8px !important;
+  outline: none !important;
+}
+
+#qr-reader button:hover {
+  background-color: #a0522d !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 14px rgba(139, 69, 19, 0.35) !important;
+}
+
+#qr-reader button:active {
+  transform: translateY(1px) !important;
+}
+
+#qr-reader select {
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid #d9d9d9 !important;
+  background-color: #ffffff !important;
+  font-size: 0.875rem !important;
+  outline: none !important;
+  margin: 8px 0 !important;
+  width: 100% !important;
+  max-width: 300px !important;
+}

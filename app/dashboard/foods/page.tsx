@@ -400,13 +400,9 @@ export default function FoodPage() {
             ),
         },
         { title: 'Tên món', dataIndex: 'name', key: 'name' },
-        {
-            title: 'Giá',
-            dataIndex: 'price',
-            key: 'price',
-            render: (v: number) => `${v.toLocaleString()}đ`,
-        },
+        { title: 'Giá', dataIndex: 'price', key: 'price', render: (v: number) => `${v.toLocaleString()}đ` },
         { title: 'Danh mục', dataIndex: ['category', 'name'], key: 'category' },
+        { title: 'Mô tả', dataIndex: 'description', key: 'description', ellipsis: true },
         isAdmin
             ? {
                 title: 'Hành động',

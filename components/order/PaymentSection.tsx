@@ -1,13 +1,15 @@
 'use client';
 
-import React from 'react';
-import { Card, Input, Button, Space, Divider, Alert } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Card, Input, Button, Space, Divider, Alert, AutoComplete } from 'antd';
 import {
     QrcodeOutlined,
     DollarOutlined,
     CreditCardOutlined,
     GlobalOutlined,
 } from '@ant-design/icons';
+import { API_URL } from '@/lib/api/client';
+import { getToken } from '@/lib/auth/auth-utils';
 
 interface PaymentSectionProps {
     voucherCode: string;
@@ -37,6 +39,7 @@ interface PaymentSectionProps {
     setCustomerCash: (cash: number) => void;
 
     onPay: () => void;
+    orderStatus?: string;
 }
 
 const PaymentSection: React.FC<PaymentSectionProps> = ({
@@ -47,12 +50,71 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
     cardType, setCardType,
     total, discountAmount, finalAmount,
     customerCash, setCustomerCash,
-    onPay
+    onPay,
+    orderStatus
 }) => {
     const displayTotal = finalAmount > 0 ? finalAmount : total;
 
+    const [options, setOptions] = useState<{ value: string; label: string }[]>([]);
+
+    useEffect(() => {
+        if (!phoneNumber || phoneNumber.trim().length < 3) {
+            setOptions([]);
+            return;
+        }
+
+        const delayDebounceFn = setTimeout(() => {
+            const token = getToken();
+            if (!token) return;
+
+            fetch(`${API_URL}/api/users/search-by-phone?phone=${encodeURIComponent(phoneNumber)}`, {
+                headers: { Authorization: `Bearer ${token}` },
+            })
+                .then((res) => {
+                    if (!res.ok) throw new Error();
+                    return res.json();
+                })
+                .then((data: any[]) => {
+                    const formatted = data.map((user) => ({
+                        value: user.phoneNumber,
+                        label: `${user.displayName} - ${user.phoneNumber}`,
+                    }));
+                    setOptions(formatted);
+                })
+                .catch(() => {
+                    setOptions([]);
+                });
+        }, 300);
+
+        return () => clearTimeout(delayDebounceFn);
+    }, [phoneNumber]);
+
     return (
         <Card title="Thanh toán">
+            {/* Order Status Alerts */}
+            {orderStatus === 'PENDING' && (
+                <Alert
+                    message="Đơn hàng chưa được phục vụ"
+                    description={
+                        <span>
+                            Đơn hàng đang ở trạng thái <strong>PENDING</strong>. Vui lòng bấm nút <strong>Serve</strong> ở phần chi tiết đơn hàng trước khi thực hiện thanh toán.
+                        </span>
+                    }
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 20 }}
+                />
+            )}
+            {orderStatus === 'PAID' && (
+                <Alert
+                    message="Đơn hàng đã thanh toán"
+                    description="Đơn hàng này đã được thanh toán và hoàn tất."
+                    type="success"
+                    showIcon
+                    style={{ marginBottom: 20 }}
+                />
+            )}
+
             {/* Voucher */}
             <div style={{ marginBottom: 24 }}>
                 <div className="text-gray-500 mb-2">Mã giảm giá / Voucher</div>
@@ -99,11 +161,14 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
             {/* Phone number */}
             <div style={{ marginBottom: 24 }}>
                 <div className="text-gray-500 mb-2">Số điện thoại khách hàng (tùy chọn)</div>
-                <Input
+                <AutoComplete
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="Nhập số điện thoại..."
-                />
+                    options={options}
+                    onChange={(value) => setPhoneNumber(value)}
+                    style={{ width: '100%' }}
+                >
+                    <Input placeholder="Nhập số điện thoại..." />
+                </AutoComplete>
             </div>
 
             {/* Payment Methods */}
@@ -316,7 +381,12 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
                         size="large"
                         block
                         onClick={onPay}
-                        disabled={!paymentMethod || (paymentMethod === 'CASH' && customerCash < displayTotal)}
+                        disabled={
+                            !paymentMethod ||
+                            (paymentMethod === 'CASH' && customerCash < displayTotal) ||
+                            orderStatus === 'PENDING' ||
+                            orderStatus === 'PAID'
+                        }
                     >
                         Thanh toán {displayTotal.toLocaleString()} đ
                     </Button>

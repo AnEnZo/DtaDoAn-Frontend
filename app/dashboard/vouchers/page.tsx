@@ -205,7 +205,7 @@ export default function VoucherManagerPage() {
 
         try {
             const res = await fetch(`${API_URL}/api/vouchers/${voucher.id}`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,
@@ -317,7 +317,7 @@ export default function VoucherManagerPage() {
             }
 
             const res = await fetch(`${API_URL}/api/vouchers/${editVoucher.id}`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`,

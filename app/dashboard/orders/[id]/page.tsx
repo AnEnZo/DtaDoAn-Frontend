@@ -16,6 +16,45 @@ import PaymentSection from '@/components/order/PaymentSection';
 import QRScannerModal from '@/components/order/QRScannerModal';
 import PaymentResultModal from '@/components/order/PaymentResultModal';
 
+const getFriendlyErrorMessage = async (res: Response, defaultMessage: string): Promise<string> => {
+    try {
+        const text = await res.text();
+        let errorMsg = text;
+        try {
+            const json = JSON.parse(text);
+            errorMsg = json.message || json.error || text;
+        } catch {
+            // Not JSON
+        }
+        
+        if (!errorMsg) return defaultMessage;
+
+        // Clean up and translate error message
+        if (errorMsg.includes('Only served orders can be paid') || errorMsg.includes('Only SERVED orders can be paid')) {
+            return 'Chỉ đơn hàng đã phục vụ mới có thể thanh toán';
+        }
+        if (errorMsg.includes('Order already paid')) {
+            return 'Đơn hàng này đã được thanh toán';
+        }
+        if (errorMsg.includes('Voucher already used')) {
+            return 'Mã voucher này đã được sử dụng';
+        }
+        if (errorMsg.includes('Voucher expired')) {
+            return 'Mã voucher đã hết hạn';
+        }
+        if (errorMsg.includes('Voucher is inactive')) {
+            return 'Mã voucher không còn hoạt động';
+        }
+
+        // Clean any Java exception class names
+        errorMsg = errorMsg.replace(/^(java\.lang\.|IllegalStateException:|NoSuchElementException:)\s*/g, '');
+
+        return errorMsg;
+    } catch {
+        return defaultMessage;
+    }
+};
+
 export default function OrderDetailPage() {
     const params = useParams();
     const id = params.id as string;
@@ -125,8 +164,8 @@ export default function OrderDetailPage() {
                 })
                     .then(async (res) => {
                         if (!res.ok) {
-                            const text = await res.text();
-                            throw new Error(text || 'Không thể tạo thanh toán PayPal');
+                            const errorMsg = await getFriendlyErrorMessage(res, 'Không thể tạo thanh toán PayPal');
+                            throw new Error(errorMsg);
                         }
                         return res.json();
                     })
@@ -181,8 +220,8 @@ export default function OrderDetailPage() {
             })
                 .then(async (res) => {
                     if (!res.ok) {
-                        const text = await res.text();
-                        throw new Error(text || 'Không thể tạo hóa đơn thanh toán thẻ');
+                        const errorMsg = await getFriendlyErrorMessage(res, 'Không thể tạo hóa đơn thanh toán thẻ');
+                        throw new Error(errorMsg);
                     }
                     return res.json();
                 })
@@ -236,8 +275,8 @@ export default function OrderDetailPage() {
         })
             .then(async (res) => {
                 if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(text || 'Không thể tạo hóa đơn');
+                    const errorMsg = await getFriendlyErrorMessage(res, 'Không thể tạo hóa đơn');
+                    throw new Error(errorMsg);
                 }
                 return res.json();
             })
@@ -288,8 +327,8 @@ export default function OrderDetailPage() {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) {
-                const text = await res.text();
-                throw new Error(text || 'Unable to serve order');
+                const errorMsg = await getFriendlyErrorMessage(res, 'Unable to serve order');
+                throw new Error(errorMsg);
             }
             fetchOrder();
             message.success('Đã phục vụ đơn hàng');
@@ -417,6 +456,7 @@ export default function OrderDetailPage() {
                         customerCash={customerCash}
                         setCustomerCash={setCustomerCash}
                         onPay={handleCreateInvoice}
+                        orderStatus={order?.status}
                     />
                 </Col>
             </Row>

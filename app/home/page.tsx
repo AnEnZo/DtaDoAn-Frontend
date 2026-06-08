@@ -135,16 +135,24 @@ export default function HomePage() {
     const [suggestionDescription, setSuggestionDescription] = useState('');
     const [suggestionCategory, setSuggestionCategory] = useState('');
     const [isSubmittingSuggestion, setIsSubmittingSuggestion] = useState(false);
+    const [suggestionFeedback, setSuggestionFeedback] = useState<{
+        type: 'success' | 'error' | null;
+        message: string | null;
+    }>({ type: null, message: null });
 
     const handleSuggestionSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
         if (!user) {
-            alert('Vui lòng đăng nhập để gửi đề xuất');
+            setSuggestionFeedback({
+                type: 'error',
+                message: 'Vui lòng đăng nhập để gửi đề xuất'
+            });
             return;
         }
 
         setIsSubmittingSuggestion(true);
+        setSuggestionFeedback({ type: null, message: null });
 
         try {
             const token = getToken(); // Lấy token từ cookie (auth-utils), không dùng localStorage
@@ -163,7 +171,10 @@ export default function HomePage() {
 
             if (response.ok) {
                 const data = await response.json();
-                alert(`Cảm ơn bạn đã đề xuất món "${data.foodName}"! Hiện tại món này có ${data.votes} lượt yêu cầu.`);
+                setSuggestionFeedback({
+                    type: 'success',
+                    message: `Cảm ơn bạn đã đề xuất món "${data.foodName}"! Hiện tại món này có ${data.votes} lượt yêu cầu.`
+                });
                 setSuggestionFood('');
                 setSuggestionDescription('');
                 setSuggestionCategory('');
@@ -182,11 +193,17 @@ export default function HomePage() {
                 if (response.status === 401 || response.status === 403) {
                     errorMessage = 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.';
                 }
-                alert(`Lỗi: ${errorMessage}`);
+                setSuggestionFeedback({
+                    type: 'error',
+                    message: errorMessage
+                });
             }
         } catch (error) {
             console.error('Error submitting suggestion:', error);
-            alert('Có lỗi xảy ra khi gửi đề xuất. Vui lòng thử lại!');
+            setSuggestionFeedback({
+                type: 'error',
+                message: 'Có lỗi xảy ra khi gửi đề xuất. Vui lòng thử lại!'
+            });
         } finally {
             setIsSubmittingSuggestion(false);
         }
@@ -513,6 +530,54 @@ export default function HomePage() {
                         viewport={{ once: true }}
                         transition={{ duration: 0.6, delay: 0.2 }}
                     >
+                        <AnimatePresence>
+                            {suggestionFeedback.type && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                    exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                                    transition={{ duration: 0.3 }}
+                                    style={{
+                                        padding: '1rem',
+                                        borderRadius: '8px',
+                                        marginBottom: '1.5rem',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        backgroundColor: suggestionFeedback.type === 'success' ? '#ecfdf5' : '#fef2f2',
+                                        color: suggestionFeedback.type === 'success' ? '#047857' : '#b91c1c',
+                                        border: `1px solid ${suggestionFeedback.type === 'success' ? '#a7f3d0' : '#fecaca'}`,
+                                        fontSize: '0.95rem',
+                                        fontWeight: '500',
+                                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.02)',
+                                        overflow: 'hidden'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span>{suggestionFeedback.type === 'success' ? '✅' : '❌'}</span>
+                                        <span>{suggestionFeedback.message}</span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSuggestionFeedback({ type: null, message: null })}
+                                        style={{
+                                            background: 'none',
+                                            border: 'none',
+                                            color: 'inherit',
+                                            cursor: 'pointer',
+                                            fontSize: '1.2rem',
+                                            padding: '0 0.5rem',
+                                            lineHeight: 1,
+                                            opacity: 0.7,
+                                            transition: 'opacity 0.2s'
+                                        }}
+                                    >
+                                        &times;
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
                         <motion.div
                             className="form-group"
                             style={{ marginBottom: '1.5rem' }}
