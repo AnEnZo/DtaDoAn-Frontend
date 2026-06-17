@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { List, Typography, Spin, message } from 'antd';
+import { List, Typography, Spin, App } from 'antd';
 import { AppstoreOutlined, CoffeeOutlined, GiftOutlined, StarOutlined } from '@ant-design/icons';
 import { apiGet } from '@/lib/api/http';
 import { getErrorMessage } from '@/lib/api/errors';
@@ -25,6 +25,7 @@ const getCategoryIcon = (name: string) => {
 };
 
 const CategoryList: React.FC<Props> = ({ onSelect }) => {
+    const { message } = App.useApp();
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedId, setSelectedId] = useState<number | null>(null);
     const [loading, setLoading] = useState(true);

@@ -12,8 +12,8 @@ import {
     Select,
     Typography,
     Popconfirm,
-    message,
     Spin,
+    App,
 } from 'antd';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -36,6 +36,7 @@ interface MenuItemDTO {
 }
 
 export default function FoodPage() {
+    const { message } = App.useApp();
     const { roles } = useAuth();
     const isAdmin = roles.includes('ROLE_ADMIN');
     const isStaff = roles.includes('ROLE_STAFF');

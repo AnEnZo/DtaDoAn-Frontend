@@ -13,7 +13,7 @@ import {
     Tag,
     DatePicker,
     Pagination,
-    message,
+    App,
 } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
 import { apiGet, apiDelete, request } from '@/lib/api/http';
@@ -44,6 +44,7 @@ interface ApiResponse {
 }
 
 export default function InvoicePage() {
+    const { message } = App.useApp();
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [invoiceId, setInvoiceId] = useState<number | null>(null);
     const [error, setError] = useState<string | null>(null);

@@ -12,7 +12,7 @@ import {
     Typography,
     Tag,
     Popconfirm,
-    message,
+    App,
 } from 'antd';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { apiGet, apiPost, apiPut } from '@/lib/api/http';
@@ -33,6 +33,7 @@ interface User {
 }
 
 export default function UserPage() {
+    const { message } = App.useApp();
     const { user } = useAuth();
     const isAdmin = user?.roles?.includes('ROLE_ADMIN');
     const [form] = Form.useForm();

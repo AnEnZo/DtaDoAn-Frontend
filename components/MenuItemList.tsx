@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Typography, InputNumber, Button, Pagination, Empty, message } from 'antd';
+import { Row, Col, Card, Typography, InputNumber, Button, Pagination, Empty, App } from 'antd';
 import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -37,6 +37,7 @@ const SkeletonCard = () => (
 );
 
 const MenuItemList: React.FC<Props> = ({ categoryName, categoryId, orderId, onChange, searchTerm }) => {
+    const { message } = App.useApp();
     const [items, setItems] = useState<MenuItem[]>([]);
     const [quantities, setQuantities] = useState<Record<number, number>>({});
     const [page, setPage] = useState<number>(0);

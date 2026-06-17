@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Statistic, Typography, Table, List, Avatar, InputNumber, Button, Space, message } from 'antd';
+import { Row, Col, Card, Statistic, Typography, Table, List, Avatar, InputNumber, Button, Space, App } from 'antd';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -9,6 +9,7 @@ import { apiGet } from '@/lib/api/http';
 import { getErrorMessage } from '@/lib/api/errors';
 
 export default function DashboardPage() {
+    const { message } = App.useApp();
     const router = useRouter();
     const { user, loading } = useAuth();
 

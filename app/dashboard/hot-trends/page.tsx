@@ -7,7 +7,7 @@ import {
     Button,
     Space,
     Typography,
-    message,
+    App,
     Tag,
     Tabs,
     DatePicker,
@@ -247,6 +247,7 @@ const trendColumns = [
 // Tab 1 — Hôm nay
 // ============================================================
 function TodayTab() {
+    const { message } = App.useApp();
     const [data, setData] = useState<FoodTrendItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [pipelineRunning, setPipelineRunning] = useState(false);
@@ -418,6 +419,7 @@ function TodayTab() {
 // Tab 2 — Lịch sử
 // ============================================================
 function HistoryTab() {
+    const { message } = App.useApp();
     const [data, setData] = useState<FoodTrendItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -498,6 +500,7 @@ function HistoryTab() {
 // Tab 3 — Instagram
 // ============================================================
 function InstagramTab() {
+    const { message } = App.useApp();
     const [data, setData] = useState<InstagramTrendingFood[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -640,6 +643,7 @@ function InstagramTab() {
 // Tab 4 — Raw Data (Before Llama)
 // ============================================================
 function RawDataTab() {
+    const { message } = App.useApp();
     const [data, setData] = useState<RawTrendItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(false);

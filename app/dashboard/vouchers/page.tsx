@@ -18,7 +18,7 @@ import {
     Row,
     Col,
     Statistic,
-    message,
+    App,
     Spin,
 } from 'antd';
 import {
@@ -53,6 +53,7 @@ interface Voucher {
 const imgdefaultVoucher = '/images/imgdefaultVoucher.png'; // Assuming you have this or will use a placeholder
 
 export default function VoucherManagerPage() {
+    const { message } = App.useApp();
     const [vouchers, setVouchers] = useState<Voucher[]>([]);
     const [filtered, setFiltered] = useState<Voucher[]>([]);
     const [searchTerm, setSearchTerm] = useState<string>('');
@@ -131,10 +132,28 @@ export default function VoucherManagerPage() {
             message.warning('Vui lòng đợi thao tác hoàn tất');
             return;
         }
-        if (!form.code.trim()) {
-            message.error('Mã voucher không thể trống');
+
+        // Kiểm tra đầy đủ các trường bắt buộc trước khi gửi
+        const missing: string[] = [];
+        if (!form.code.trim()) missing.push('Mã voucher');
+        // BOGO không cần giá trị giảm (tự tính); các loại khác bắt buộc > 0
+        if (form.type !== 'BUY_ONE_GET_ONE' && (!form.discountValue || form.discountValue <= 0)) {
+            missing.push('Giá trị giảm (lớn hơn 0)');
+        }
+        if (form.minOrderAmount == null || form.minOrderAmount < 0) missing.push('Đơn tối thiểu');
+        if (!form.requiredPoints || form.requiredPoints <= 0) missing.push('Điểm yêu cầu (lớn hơn 0)');
+        if (!pendingNewFile && !form.imageUrl?.trim()) missing.push('Ảnh voucher');
+
+        if (missing.length > 0) {
+            message.error('Vui lòng nhập đầy đủ thông tin: ' + missing.join(', '));
             return;
         }
+
+        if (form.type === 'PERCENTAGE_DISCOUNT' && form.discountValue > 100) {
+            message.error('Phần trăm giảm phải từ 1 đến 100');
+            return;
+        }
+
         const token = getToken();
         if (!token) return;
 
@@ -272,6 +291,28 @@ export default function VoucherManagerPage() {
             return;
         }
         if (!editVoucher) return;
+
+        // Kiểm tra đầy đủ các trường bắt buộc trước khi cập nhật
+        const missing: string[] = [];
+        if (!editVoucher.code.trim()) missing.push('Mã voucher');
+        // BOGO không cần giá trị giảm (tự tính); các loại khác bắt buộc > 0
+        if (editVoucher.type !== 'BUY_ONE_GET_ONE' && (!editVoucher.discountValue || editVoucher.discountValue <= 0)) {
+            missing.push('Giá trị giảm (lớn hơn 0)');
+        }
+        if (editVoucher.minOrderAmount == null || editVoucher.minOrderAmount < 0) missing.push('Đơn tối thiểu');
+        if (!editVoucher.requiredPoints || editVoucher.requiredPoints <= 0) missing.push('Điểm yêu cầu (lớn hơn 0)');
+        if (!pendingEditFile && !editVoucher.imageUrl?.trim()) missing.push('Ảnh voucher');
+
+        if (missing.length > 0) {
+            message.error('Vui lòng nhập đầy đủ thông tin: ' + missing.join(', '));
+            return;
+        }
+
+        if (editVoucher.type === 'PERCENTAGE_DISCOUNT' && editVoucher.discountValue > 100) {
+            message.error('Phần trăm giảm phải từ 1 đến 100');
+            return;
+        }
+
         const token = getToken();
         if (!token) return;
 
@@ -308,7 +349,11 @@ export default function VoucherManagerPage() {
         t === 'PERCENTAGE_DISCOUNT' ? 'Phần trăm' : t === 'FIXED_DISCOUNT' ? 'Giảm cố định' : 'Mua 1 tặng 1';
 
     const fmtVal = (v: Voucher) =>
-        v.type === 'PERCENTAGE_DISCOUNT' ? `${v.discountValue}%` : `${v.discountValue.toLocaleString()}₫`;
+        v.type === 'BUY_ONE_GET_ONE'
+            ? 'Tặng 1 sản phẩm'
+            : v.type === 'PERCENTAGE_DISCOUNT'
+                ? `${v.discountValue}%`
+                : `${v.discountValue.toLocaleString()}₫`;
 
     const getTypeColor = (type: string) => {
         switch (type) {
@@ -468,8 +513,10 @@ export default function VoucherManagerPage() {
                                         {v.code}
                                     </Typography.Title>
                                     <div style={{ marginBottom: 12 }}>
-                                        <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: 4 }}>Giảm giá</div>
-                                        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#ea580c' }}>{fmtVal(v)}</div>
+                                        <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: 4 }}>
+                                            {v.type === 'BUY_ONE_GET_ONE' ? 'Ưu đãi' : 'Giảm giá'}
+                                        </div>
+                                        <div style={{ fontSize: v.type === 'BUY_ONE_GET_ONE' ? '1.25rem' : '1.75rem', fontWeight: 700, color: '#ea580c' }}>{fmtVal(v)}</div>
                                     </div>
                                     <div style={{ borderTop: '1px dashed #e5e7eb', paddingTop: 12, fontSize: '0.9rem' }}>
                                         <div style={{ marginBottom: 6, color: '#6b7280' }}>
@@ -503,7 +550,7 @@ export default function VoucherManagerPage() {
                         <Form.Item label="Loại Voucher">
                             <Select
                                 value={form.type}
-                                onChange={(v) => setForm({ ...form, type: v })}
+                                onChange={(v) => setForm({ ...form, type: v, discountValue: v === 'BUY_ONE_GET_ONE' ? 0 : form.discountValue })}
                                 options={[
                                     { label: 'Giảm theo phần trăm', value: 'PERCENTAGE_DISCOUNT' },
                                     { label: 'Giảm cố định', value: 'FIXED_DISCOUNT' },
@@ -513,12 +560,16 @@ export default function VoucherManagerPage() {
                         </Form.Item>
                         <Row gutter={16}>
                             <Col span={12}>
-                                <Form.Item label="Giá trị giảm">
+                                <Form.Item
+                                    label="Giá trị giảm"
+                                    tooltip={form.type === 'BUY_ONE_GET_ONE' ? 'Mua 1 tặng 1 tự tính theo món đắt nhất, không cần nhập giá trị giảm' : undefined}
+                                >
                                     <InputNumber
-                                        value={form.discountValue}
+                                        value={form.type === 'BUY_ONE_GET_ONE' ? 0 : form.discountValue}
                                         onChange={(v) => setForm({ ...form, discountValue: Number(v) })}
                                         style={{ width: '100%' }}
                                         min={0}
+                                        disabled={form.type === 'BUY_ONE_GET_ONE'}
                                     />
                                 </Form.Item>
                             </Col>
@@ -611,7 +662,7 @@ export default function VoucherManagerPage() {
                             <Form.Item label="Loại">
                                 <Select
                                     value={editVoucher.type}
-                                    onChange={(v) => setEditVoucher({ ...editVoucher, type: v })}
+                                    onChange={(v) => setEditVoucher({ ...editVoucher, type: v, discountValue: v === 'BUY_ONE_GET_ONE' ? 0 : editVoucher.discountValue })}
                                     options={[
                                         { label: 'Giảm theo phần trăm', value: 'PERCENTAGE_DISCOUNT' },
                                         { label: 'Giảm cố định', value: 'FIXED_DISCOUNT' },
@@ -621,11 +672,15 @@ export default function VoucherManagerPage() {
                             </Form.Item>
                             <Row gutter={16}>
                                 <Col span={12}>
-                                    <Form.Item label="Giá trị giảm">
+                                    <Form.Item
+                                        label="Giá trị giảm"
+                                        tooltip={editVoucher.type === 'BUY_ONE_GET_ONE' ? 'Mua 1 tặng 1 tự tính theo món đắt nhất, không cần nhập giá trị giảm' : undefined}
+                                    >
                                         <InputNumber
-                                            value={editVoucher.discountValue}
+                                            value={editVoucher.type === 'BUY_ONE_GET_ONE' ? 0 : editVoucher.discountValue}
                                             onChange={(v) => setEditVoucher({ ...editVoucher, discountValue: Number(v) })}
                                             style={{ width: '100%' }}
+                                            disabled={editVoucher.type === 'BUY_ONE_GET_ONE'}
                                         />
                                     </Form.Item>
                                 </Col>

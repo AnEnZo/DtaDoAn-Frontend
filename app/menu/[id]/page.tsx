@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Typography, Button, Spin, Breadcrumb, message } from 'antd';
+import { Row, Col, Typography, Button, Spin, Breadcrumb, App } from 'antd';
 import { ShoppingCartOutlined, HomeOutlined, ArrowLeftOutlined, HeartOutlined, ShareAltOutlined, StarOutlined } from '@ant-design/icons';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
@@ -26,6 +26,7 @@ interface MenuItem {
 }
 
 export default function ProductDetailPage() {
+    const { message } = App.useApp();
     const params = useParams();
     const router = useRouter();
     const id = params?.id;

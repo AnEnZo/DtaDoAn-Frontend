@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Button, Input, Modal, Popconfirm, Space, Typography, message } from 'antd';
+import { Card, Table, Button, Input, Modal, Popconfirm, Space, Typography, App } from 'antd';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api/http';
 import { getErrorMessage } from '@/lib/api/errors';
 
@@ -11,6 +11,7 @@ export interface Category {
 }
 
 export default function CategoryPage() {
+    const { message } = App.useApp();
     const [categories, setCategories] = useState<Category[]>([]);
     const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
     const [form, setForm] = useState<Category>({ id: 0, name: '' });

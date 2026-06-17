@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Button, Input, Space, Typography, message, Tag } from 'antd';
+import { Card, Table, Button, Input, Space, Typography, App, Tag } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { apiGet } from '@/lib/api/http';
 import { getErrorMessage } from '@/lib/api/errors';
@@ -18,6 +18,7 @@ interface FoodSuggestion {
 }
 
 export default function FoodSuggestionsPage() {
+    const { message } = App.useApp();
     const [suggestions, setSuggestions] = useState<FoodSuggestion[]>([]);
     const [filteredSuggestions, setFilteredSuggestions] = useState<FoodSuggestion[]>([]);
     const [search, setSearch] = useState('');

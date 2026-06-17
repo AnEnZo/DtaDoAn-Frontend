@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, Space, Typography, Radio, InputNumber, Select, Row, Col, message } from 'antd';
+import { Card, Space, Typography, Radio, InputNumber, Select, Row, Col, App } from 'antd';
 import {
     DollarOutlined,
     ShoppingOutlined,
@@ -29,6 +29,7 @@ interface RevenueData {
 }
 
 export default function RevenuePage() {
+    const { message } = App.useApp();
     const [mode, setMode] = useState<'year' | 'month'>('year');
     const [year, setYear] = useState<number>(new Date().getFullYear());
     const [month, setMonth] = useState<number>(new Date().getMonth() + 1);

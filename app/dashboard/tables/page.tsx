@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Space, Switch, Modal, Form, Input, InputNumber, Tag, App } from 'antd';
+import { Card, Table, Button, Space, Switch, Modal, Form, Input, InputNumber, Tag, App, Popconfirm } from 'antd';
+import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { apiGet, apiPost } from '@/lib/api/http';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api/http';
 import { getErrorMessage } from '@/lib/api/errors';
 
 interface TableData {
@@ -24,7 +25,11 @@ export default function TablesPage() {
     const [tables, setTables] = useState<TableData[]>([]);
     const [showAvailableOnly, setShowAvailableOnly] = useState<boolean>(false);
     const [createOpen, setCreateOpen] = useState<boolean>(false);
-    const [form] = Form.useForm<{ name: string; capacity: number; available: boolean }>();
+    const [form] = Form.useForm<{ name: string; capacity: number }>();
+
+    const [editOpen, setEditOpen] = useState<boolean>(false);
+    const [editingTable, setEditingTable] = useState<TableData | null>(null);
+    const [editForm] = Form.useForm<{ name: string; capacity: number }>();
 
     const fetchTables = async () => {
         try {
@@ -64,6 +69,40 @@ export default function TablesPage() {
         } catch (error) {
             console.error('Lỗi khi tạo bàn mới:', error);
             message.error(getErrorMessage(error, 'Lỗi khi tạo bàn mới'));
+        }
+    };
+
+    const openEdit = (record: TableData) => {
+        setEditingTable(record);
+        editForm.setFieldsValue({ name: record.name, capacity: record.capacity });
+        setEditOpen(true);
+    };
+
+    const updateTable = async () => {
+        if (!editingTable) return;
+        const values = await editForm.validateFields();
+        try {
+            const updated = await apiPut<TableData>(`/api/tables/${editingTable.id}`, {
+                ...values,
+                available: editingTable.available, // giữ nguyên trạng thái hiện tại (DTO yêu cầu)
+            });
+            setTables((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+            setEditOpen(false);
+            setEditingTable(null);
+            editForm.resetFields();
+            message.success('Cập nhật bàn thành công');
+        } catch (error) {
+            message.error(getErrorMessage(error, 'Lỗi khi cập nhật bàn'));
+        }
+    };
+
+    const deleteTable = async (id: number) => {
+        try {
+            await apiDelete(`/api/tables/${id}`);
+            setTables((prev) => prev.filter((t) => t.id !== id));
+            message.success('Đã xóa bàn');
+        } catch (error) {
+            message.error(getErrorMessage(error, 'Không thể xóa bàn'));
         }
     };
 
@@ -107,7 +146,7 @@ export default function TablesPage() {
         {
             title: 'Hành động',
             key: 'actions',
-            width: 220,
+            width: 360,
             render: (_: any, record: TableData) => (
                 <Space>
                     {record.available ? (
@@ -116,6 +155,25 @@ export default function TablesPage() {
                         </Button>
                     ) : (
                         <Button onClick={() => viewOrderDetails(record.id)}>Chi tiết đơn</Button>
+                    )}
+                    {isAdmin && (
+                        <>
+                            <Button icon={<EditOutlined />} onClick={() => openEdit(record)}>
+                                Sửa
+                            </Button>
+                            <Popconfirm
+                                title="Xóa bàn này?"
+                                description="Bàn sẽ được ẩn khỏi danh sách (xóa mềm)."
+                                okText="Xóa"
+                                cancelText="Hủy"
+                                okButtonProps={{ danger: true }}
+                                onConfirm={() => deleteTable(record.id)}
+                            >
+                                <Button danger icon={<DeleteOutlined />}>
+                                    Xóa
+                                </Button>
+                            </Popconfirm>
+                        </>
                     )}
                 </Space>
             ),
@@ -158,7 +216,7 @@ export default function TablesPage() {
                 <Form
                     form={form}
                     layout="vertical"
-                    initialValues={{ name: '', capacity: 1, available: true }}
+                    initialValues={{ name: '', capacity: 1 }}
                 >
                     <Form.Item
                         name="name"
@@ -174,8 +232,36 @@ export default function TablesPage() {
                     >
                         <InputNumber min={1} style={{ width: '100%' }} />
                     </Form.Item>
-                    <Form.Item name="available" label="Trạng thái" valuePropName="checked">
-                        <Switch checkedChildren="Trống" unCheckedChildren="Đã đặt" />
+                    {/* Bàn luôn được tạo ở trạng thái "Trống" — không cần chọn trạng thái */}
+                </Form>
+            </Modal>
+
+            <Modal
+                title="Sửa thông tin bàn"
+                open={editOpen}
+                okText="Lưu"
+                cancelText="Hủy"
+                onOk={updateTable}
+                onCancel={() => {
+                    setEditOpen(false);
+                    setEditingTable(null);
+                    editForm.resetFields();
+                }}
+            >
+                <Form form={editForm} layout="vertical">
+                    <Form.Item
+                        name="name"
+                        label="Tên bàn"
+                        rules={[{ required: true, message: 'Vui lòng nhập tên bàn' }]}
+                    >
+                        <Input placeholder="Nhập tên bàn" />
+                    </Form.Item>
+                    <Form.Item
+                        name="capacity"
+                        label="Sức chứa"
+                        rules={[{ required: true, type: 'number', min: 1 }]}
+                    >
+                        <InputNumber min={1} style={{ width: '100%' }} />
                     </Form.Item>
                 </Form>
             </Modal>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Row, Col, Button, Modal, message } from 'antd';
+import { Row, Col, Button, Modal, App } from 'antd';
 import { LeftOutlined } from '@ant-design/icons';
 import CategoryList, { Category } from '@/components/CategoryList';
 import MenuItemList from '@/components/MenuItemList';
@@ -56,6 +56,7 @@ const getFriendlyErrorMessage = async (res: Response, defaultMessage: string): P
 };
 
 export default function OrderDetailPage() {
+    const { message } = App.useApp();
     const params = useParams();
     const id = params.id as string;
     const router = useRouter();

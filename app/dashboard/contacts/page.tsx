@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Card, Table, Button, Input, Space, Typography, message, Tag, Modal, Popconfirm } from 'antd';
+import { Card, Table, Button, Input, Space, Typography, App, Tag, Modal, Popconfirm } from 'antd';
 import { ReloadOutlined, EyeOutlined, CheckCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { apiGet, apiPut, apiDelete } from '@/lib/api/http';
 import { getErrorMessage } from '@/lib/api/errors';
@@ -17,6 +17,7 @@ interface ContactMessage {
 }
 
 export default function ContactsAdminPage() {
+    const { message } = App.useApp();
     const [contacts, setContacts] = useState<ContactMessage[]>([]);
     const [filteredContacts, setFilteredContacts] = useState<ContactMessage[]>([]);
     const [search, setSearch] = useState('');

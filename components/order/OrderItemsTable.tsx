@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Table, Card, Button, Space, message, InputNumber } from 'antd';
+import { Table, Card, Button, Space, App, InputNumber } from 'antd';
 import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import { OrderItem } from './OrderInfoCard';
 import { apiPost, apiDelete } from '@/lib/api/http';
@@ -45,6 +45,7 @@ const EditableQuantity = ({ quantity, onUpdate, disabled }: { quantity: number; 
 };
 
 const OrderItemsTable: React.FC<OrderItemsTableProps> = ({ items, total, orderId, onUpdate }) => {
+    const { message } = App.useApp();
     const handleUpdateQuantity = (itemId: number, delta: number) => {
         if (!orderId || !onUpdate || delta === 0) return;
 
