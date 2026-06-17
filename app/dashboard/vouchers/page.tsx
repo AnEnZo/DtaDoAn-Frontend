@@ -11,7 +11,6 @@ import {
     InputNumber,
     Select,
     Switch,
-    List,
     Typography,
     Popconfirm,
     Badge,
@@ -19,6 +18,7 @@ import {
     Col,
     Statistic,
     App,
+    Empty,
     Spin,
 } from 'antd';
 import {
@@ -452,13 +452,21 @@ export default function VoucherManagerPage() {
                     </Space>
                 </Card>
 
-                {/* Voucher Grid */}
-                <List
-                    grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4 }}
-                    dataSource={filtered}
-                    renderItem={(v) => (
-                        <List.Item>
-                            <Badge.Ribbon text={v.active ? 'Hoạt động' : 'Tắt'} color={v.active ? 'green' : 'gray'}>
+                {/* Voucher Grid — CSS Grid để các thẻ cùng hàng luôn cao bằng nhau */}
+                {filtered.length === 0 ? (
+                    <Empty description="Không có voucher" style={{ padding: '40px 0' }} />
+                ) : (
+                    <div
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                            gap: 16,
+                            alignItems: 'stretch',
+                        }}
+                    >
+                        {filtered.map((v) => (
+                            <div key={v.id} style={{ height: '100%' }}>
+                                <Badge.Ribbon text={v.active ? 'Hoạt động' : 'Tắt'} color={v.active ? 'green' : 'gray'}>
                                 <Card
                                     hoverable
                                     style={{
@@ -466,14 +474,18 @@ export default function VoucherManagerPage() {
                                         border: `2px solid ${getTypeColor(v.type)}40`,
                                         boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                                         transition: 'all 0.3s ease',
+                                        height: '100%',
+                                        display: 'flex',
+                                        flexDirection: 'column',
                                     }}
+                                    styles={{ body: { flex: 1 } }}
                                     cover={
-                                        <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'relative', width: '100%', height: 160, overflow: 'hidden', borderRadius: '12px 12px 0 0' }}>
                                             <img
                                                 src={v.imageUrl || imgdefaultVoucher}
                                                 onError={(e) => { (e.currentTarget as HTMLImageElement).src = imgdefaultVoucher; }}
                                                 alt={v.code}
-                                                style={{ height: 160, objectFit: 'cover', borderRadius: '12px 12px 0 0' }}
+                                                style={{ width: '100%', height: 160, objectFit: 'cover', display: 'block' }}
                                             />
                                             <div style={{
                                                 position: 'absolute',
@@ -516,7 +528,7 @@ export default function VoucherManagerPage() {
                                         <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: 4 }}>
                                             {v.type === 'BUY_ONE_GET_ONE' ? 'Ưu đãi' : 'Giảm giá'}
                                         </div>
-                                        <div style={{ fontSize: v.type === 'BUY_ONE_GET_ONE' ? '1.25rem' : '1.75rem', fontWeight: 700, color: '#ea580c' }}>{fmtVal(v)}</div>
+                                        <div style={{ fontSize: v.type === 'BUY_ONE_GET_ONE' ? '1.25rem' : '1.75rem', fontWeight: 700, color: '#ea580c', minHeight: '2.1rem', display: 'flex', alignItems: 'center' }}>{fmtVal(v)}</div>
                                     </div>
                                     <div style={{ borderTop: '1px dashed #e5e7eb', paddingTop: 12, fontSize: '0.9rem' }}>
                                         <div style={{ marginBottom: 6, color: '#6b7280' }}>
@@ -527,10 +539,11 @@ export default function VoucherManagerPage() {
                                         </div>
                                     </div>
                                 </Card>
-                            </Badge.Ribbon>
-                        </List.Item>
-                    )}
-                />
+                                </Badge.Ribbon>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 {/* Modals */}
                 <Modal

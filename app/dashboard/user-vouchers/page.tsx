@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, Space, Input, Button, List, Typography, Modal, Image, Alert, Badge, Tag, Row, Col, Empty, Tooltip, message } from 'antd';
+import { Card, Space, Input, Button, Typography, Modal, Image, Alert, Badge, Tag, Row, Col, Empty, Tooltip } from 'antd';
 import Link from 'next/link';
 import { QrcodeOutlined, HomeOutlined, GiftOutlined, SearchOutlined, ReloadOutlined, TrophyOutlined, ClockCircleOutlined, FireOutlined } from '@ant-design/icons';
 import { apiGet, apiPost, request } from '@/lib/api/http';
@@ -146,7 +146,11 @@ export default function UserVoucherManagerPage() {
         type === 'PERCENTAGE_DISCOUNT' ? 'Phần trăm' : type === 'FIXED_DISCOUNT' ? 'Giảm cố định' : 'Mua 1 tặng 1';
 
     const fmtVal = (v: Voucher) =>
-        v.type === 'PERCENTAGE_DISCOUNT' ? `${v.discountValue}%` : `${v.discountValue.toLocaleString()}₫`;
+        v.type === 'BUY_ONE_GET_ONE'
+            ? 'Tặng 1 sản phẩm'
+            : v.type === 'PERCENTAGE_DISCOUNT'
+                ? `${v.discountValue}%`
+                : `${v.discountValue.toLocaleString()}₫`;
 
     const isHighValue = (v: Voucher) => {
         if (v.type === 'PERCENTAGE_DISCOUNT') return v.discountValue >= 20;
@@ -241,15 +245,23 @@ export default function UserVoucherManagerPage() {
                     {error && <Alert type="error" message={error} showIcon style={{ marginTop: 12 }} closable />}
                 </Card>
 
-                {/* Available Vouchers */}
-                <List
-                    grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4 }}
-                    dataSource={filtered}
-                    renderItem={(v) => {
-                        const canExchange = userPoints >= v.requiredPoints;
-                        return (
-                            <List.Item>
-                                {isHighValue(v) && (
+                {/* Available Vouchers — CSS Grid để các thẻ cùng hàng luôn cao bằng nhau */}
+                {filtered.length === 0 ? (
+                    <Empty description="Không có voucher phù hợp" style={{ padding: '40px 0' }} />
+                ) : (
+                    <div
+                        style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                            gap: 16,
+                            alignItems: 'stretch',
+                        }}
+                    >
+                        {filtered.map((v) => {
+                            const canExchange = userPoints >= v.requiredPoints;
+                            return (
+                                <div key={v.id} style={{ position: 'relative', height: '100%' }}>
+                                    {isHighValue(v) && (
                                     <div style={{
                                         position: 'absolute',
                                         top: 12,
@@ -274,15 +286,20 @@ export default function UserVoucherManagerPage() {
                                         boxShadow: canExchange ? '0 8px 24px rgba(139, 69, 19, 0.2)' : '0 4px 12px rgba(0,0,0,0.08)',
                                         transition: 'all 0.3s ease',
                                         opacity: canExchange ? 1 : 0.7,
+                                        height: '100%',
+                                        display: 'flex',
+                                        flexDirection: 'column',
                                     }}
+                                    styles={{ body: { flex: 1 } }}
                                     cover={
-                                        <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'relative', width: '100%', height: 160, overflow: 'hidden', borderRadius: '12px 12px 0 0' }}>
                                             <Image
                                                 src={v.imageUrl || imgDefault}
                                                 fallback={imgDefault}
                                                 alt={v.code}
+                                                width="100%"
                                                 height={160}
-                                                style={{ objectFit: 'cover', borderRadius: '12px 12px 0 0' }}
+                                                style={{ objectFit: 'cover', display: 'block' }}
                                                 preview={false}
                                             />
                                             <Tag
@@ -317,17 +334,20 @@ export default function UserVoucherManagerPage() {
                                         {v.code}
                                     </Typography.Title>
                                     <div style={{ marginBottom: 12 }}>
-                                        <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: 4 }}>Giảm giá</div>
-                                        <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#ea580c' }}>{fmtVal(v)}</div>
+                                        <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: 4 }}>
+                                            {v.type === 'BUY_ONE_GET_ONE' ? 'Ưu đãi' : 'Giảm giá'}
+                                        </div>
+                                        <div style={{ fontSize: v.type === 'BUY_ONE_GET_ONE' ? '1.25rem' : '1.75rem', fontWeight: 700, color: '#ea580c', minHeight: '2.1rem', display: 'flex', alignItems: 'center' }}>{fmtVal(v)}</div>
                                     </div>
                                     <div style={{ borderTop: '1px dashed #e5e7eb', paddingTop: 12, fontSize: '0.9rem', color: '#6b7280' }}>
                                         <div>Đơn tối thiểu: <strong>{v.minOrderAmount.toLocaleString()}₫</strong></div>
                                     </div>
                                 </Card>
-                            </List.Item>
-                        );
-                    }}
-                />
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {/* Used Vouchers Section */}
                 {usedVoucherLoaded && (
@@ -353,11 +373,16 @@ export default function UserVoucherManagerPage() {
                                 </Button>
                             </Empty>
                         ) : (
-                            <List
-                                grid={{ gutter: 16, xs: 1, sm: 2, md: 3, lg: 4 }}
-                                dataSource={usedVouchers}
-                                renderItem={(uv) => (
-                                    <List.Item>
+                            <div
+                                style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                                    gap: 16,
+                                    alignItems: 'stretch',
+                                }}
+                            >
+                                {usedVouchers.map((uv) => (
+                                    <div key={uv.id} style={{ height: '100%' }}>
                                         <Badge.Ribbon text={uv.used ? 'Đã dùng' : 'Chưa dùng'} color={uv.used ? 'gray' : 'green'}>
                                             <Card
                                                 hoverable
@@ -365,16 +390,23 @@ export default function UserVoucherManagerPage() {
                                                     borderRadius: 12,
                                                     border: '2px solid #deb887',
                                                     boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                                                    height: '100%',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
                                                 }}
+                                                styles={{ body: { flex: 1 } }}
                                                 cover={
-                                                    <Image
-                                                        src={uv.voucher.imageUrl || imgDefault}
-                                                        fallback={imgDefault}
-                                                        alt={uv.voucher.code}
-                                                        height={160}
-                                                        style={{ objectFit: 'cover', borderRadius: '12px 12px 0 0' }}
-                                                        preview={false}
-                                                    />
+                                                    <div style={{ width: '100%', height: 160, overflow: 'hidden', borderRadius: '12px 12px 0 0' }}>
+                                                        <Image
+                                                            src={uv.voucher.imageUrl || imgDefault}
+                                                            fallback={imgDefault}
+                                                            alt={uv.voucher.code}
+                                                            width="100%"
+                                                            height={160}
+                                                            style={{ objectFit: 'cover', display: 'block' }}
+                                                            preview={false}
+                                                        />
+                                                    </div>
                                                 }
                                                 actions={[
                                                     <Button
@@ -411,8 +443,10 @@ export default function UserVoucherManagerPage() {
                                                     {uv.voucher.code}
                                                 </Typography.Title>
                                                 <div style={{ marginBottom: 8 }}>
-                                                    <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>Giảm</div>
-                                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ea580c' }}>{fmtVal(uv.voucher)}</div>
+                                                    <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                                                        {uv.voucher.type === 'BUY_ONE_GET_ONE' ? 'Ưu đãi' : 'Giảm'}
+                                                    </div>
+                                                    <div style={{ fontSize: uv.voucher.type === 'BUY_ONE_GET_ONE' ? '1.2rem' : '1.5rem', fontWeight: 700, color: '#ea580c', minHeight: '1.9rem', display: 'flex', alignItems: 'center' }}>{fmtVal(uv.voucher)}</div>
                                                 </div>
                                                 <div style={{ borderTop: '1px dashed #e5e7eb', paddingTop: 8, fontSize: '0.85rem', color: '#6b7280' }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -425,9 +459,9 @@ export default function UserVoucherManagerPage() {
                                                 </div>
                                             </Card>
                                         </Badge.Ribbon>
-                                    </List.Item>
-                                )}
-                            />
+                                    </div>
+                                ))}
+                            </div>
                         )}
                     </Card>
                 )}
@@ -440,41 +474,84 @@ export default function UserVoucherManagerPage() {
                         setSelectedVoucher(null);
                     }}
                     footer={null}
-                    title={
-                        <div style={{ textAlign: 'center' }}>
-                            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1f2937' }}>{selectedVoucher?.voucher.code}</div>
-                            <div style={{ fontSize: '0.9rem', color: '#6b7280', marginTop: 4 }}>Quét mã này tại quầy thanh toán</div>
-                        </div>
-                    }
+                    title={null}
                     centered
-                    width={500}
+                    width={400}
+                    styles={{ body: { padding: 0, overflow: 'hidden', borderRadius: 12 } }}
                 >
-                    {qrImage && (
-                        <div style={{ textAlign: 'center', padding: 24 }}>
+                    {selectedVoucher && (
+                        <div>
+                            {/* Header */}
                             <div style={{
-                                background: '#f9fafb',
-                                padding: 24,
-                                borderRadius: 12,
-                                marginBottom: 16,
-                                display: 'inline-block',
+                                background: 'linear-gradient(135deg, #8b4513 0%, #cd853f 100%)',
+                                padding: '28px 24px 22px',
+                                textAlign: 'center',
+                                color: '#fff',
                             }}>
-                                <Image src={qrImage} alt="QR Code" width={300} preview={false} />
-                            </div>
-                            {selectedVoucher && (
                                 <div style={{
-                                    background: '#fef3e2',
-                                    padding: 16,
-                                    borderRadius: 8,
-                                    border: '1px solid #d4a574',
+                                    width: 56, height: 56, margin: '0 auto 12px', borderRadius: '50%',
+                                    background: 'rgba(255,255,255,0.18)', display: 'flex',
+                                    alignItems: 'center', justifyContent: 'center', fontSize: 26,
                                 }}>
-                                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#ea580c', marginBottom: 8 }}>
-                                        Giảm {fmtVal(selectedVoucher.voucher)}
+                                    <GiftOutlined />
+                                </div>
+                                <div style={{ fontSize: '1.4rem', fontWeight: 800, letterSpacing: 0.5 }}>
+                                    {selectedVoucher.voucher.code}
+                                </div>
+                                <div style={{ fontSize: '0.85rem', opacity: 0.9, marginTop: 4 }}>
+                                    Quét mã này tại quầy thanh toán
+                                </div>
+                            </div>
+
+                            {/* QR */}
+                            <div style={{ padding: '24px 24px 8px', textAlign: 'center', background: '#fff' }}>
+                                <div style={{
+                                    display: 'inline-block', padding: 16, background: '#fff',
+                                    borderRadius: 16, boxShadow: '0 6px 20px rgba(0,0,0,0.10)',
+                                    border: '1px solid #f0e6d8',
+                                }}>
+                                    {qrImage ? (
+                                        <Image src={qrImage} alt="QR Code" width={220} preview={false} />
+                                    ) : (
+                                        <div style={{
+                                            width: 220, height: 220, display: 'flex',
+                                            alignItems: 'center', justifyContent: 'center', color: '#9ca3af',
+                                        }}>
+                                            <QrcodeOutlined style={{ fontSize: 48 }} />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Offer ticket */}
+                            <div style={{ padding: '8px 24px 24px', background: '#fff' }}>
+                                <div style={{
+                                    background: '#fff7ed', border: '1px dashed #f0a868',
+                                    borderRadius: 12, padding: 16, textAlign: 'center',
+                                }}>
+                                    <Tag color="orange" style={{ marginBottom: 8, borderRadius: 10, fontWeight: 600 }}>
+                                        {fmtType(selectedVoucher.voucher.type)}
+                                    </Tag>
+                                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#ea580c' }}>
+                                        {selectedVoucher.voucher.type === 'BUY_ONE_GET_ONE'
+                                            ? fmtVal(selectedVoucher.voucher)
+                                            : `Giảm ${fmtVal(selectedVoucher.voucher)}`}
                                     </div>
-                                    <div style={{ fontSize: '0.9rem', color: '#6b7280' }}>
+                                    {selectedVoucher.voucher.minOrderAmount > 0 && (
+                                        <div style={{ fontSize: '0.8rem', color: '#9a7b5a', marginTop: 4 }}>
+                                            Đơn tối thiểu {selectedVoucher.voucher.minOrderAmount.toLocaleString()}₫
+                                        </div>
+                                    )}
+                                    <div style={{
+                                        fontSize: '0.85rem', color: '#6b7280', marginTop: 10,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                                    }}>
                                         <ClockCircleOutlined /> {getTimeRemaining(selectedVoucher.expiryAt)}
+                                        <span style={{ color: '#d1d5db' }}>•</span>
+                                        Hết hạn {new Date(selectedVoucher.expiryAt).toLocaleDateString('vi-VN')}
                                     </div>
                                 </div>
-                            )}
+                            </div>
                         </div>
                     )}
                 </Modal>
