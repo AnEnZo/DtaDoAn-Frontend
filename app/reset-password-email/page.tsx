@@ -11,10 +11,15 @@ interface ResetReq {
     newPassword: string;
 }
 
+interface ResetForm extends ResetReq {
+    confirmPassword: string;
+}
+
 export default function ResetPasswordEmailPage() {
-    const [form, setForm] = useState<ResetReq>({ username: '', otp: '', newPassword: '' });
+    const [form, setForm] = useState<ResetForm>({ username: '', otp: '', newPassword: '', confirmPassword: '' });
     const [loading, setLoading] = useState<boolean>(false);
     const [message, setMessage] = useState<string | null>(null);
+    const [isError, setIsError] = useState<boolean>(false);
     const router = useRouter();
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,9 +28,15 @@ export default function ResetPasswordEmailPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        const { username, otp, newPassword } = form;
-        if (!username || !otp || !newPassword) {
+        const { username, otp, newPassword, confirmPassword } = form;
+        if (!username || !otp || !newPassword || !confirmPassword) {
             setMessage('Vui lòng điền đầy đủ thông tin');
+            setIsError(true);
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setMessage('Mật khẩu nhập lại không khớp!');
+            setIsError(true);
             return;
         }
         setLoading(true);
@@ -33,15 +44,35 @@ export default function ResetPasswordEmailPage() {
             const res = await fetch(`${API_URL}/api/auth/reset-password-email`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form),
+                body: JSON.stringify({ username, otp, newPassword }),
             });
+            
+            if (!res.ok) {
+                let errorMsg = 'Đặt lại mật khẩu thất bại';
+                try {
+                    const contentType = res.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const data = await res.json();
+                        errorMsg = data.message || errorMsg;
+                    } else {
+                        const text = await res.text();
+                        if (text) errorMsg = text;
+                    }
+                } catch {
+                    // Use fallback
+                }
+                throw new Error(errorMsg);
+            }
+
             const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Đặt lại mật khẩu thất bại');
-            setMessage(data.message);
+            setMessage(data.message || 'Đặt lại mật khẩu thành công');
+            setIsError(false);
             // Chuyển về login sau 2s
             setTimeout(() => router.push('/'), 2000);
-        } catch (err: any) {
-            setMessage(err.message);
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Đặt lại mật khẩu thất bại';
+            setMessage(errorMessage);
+            setIsError(true);
         } finally {
             setLoading(false);
         }
@@ -111,9 +142,33 @@ export default function ResetPasswordEmailPage() {
                                 disabled={loading}
                             />
                         </div>
+                        <div>
+                            <label htmlFor="confirmPassword" className="block text-gray-700 text-sm font-medium mb-2">
+                                Nhập lại mật khẩu
+                            </label>
+                            <input
+                                id="confirmPassword"
+                                name="confirmPassword"
+                                type="password"
+                                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300 text-gray-800"
+                                value={form.confirmPassword}
+                                onChange={handleChange}
+                                placeholder="Nhập lại mật khẩu mới"
+                                disabled={loading}
+                            />
+                            {form.confirmPassword && form.newPassword !== form.confirmPassword && (
+                                <p className="text-red-500 text-xs mt-1 font-medium">
+                                    Mật khẩu nhập lại không khớp
+                                </p>
+                            )}
+                        </div>
                         {message && (
                             <div
-                                className="bg-blue-50 text-blue-700 border border-blue-200 rounded-lg p-3 text-sm"
+                                className={`p-4 rounded-xl text-sm border transition-all duration-300 ${
+                                    isError
+                                        ? 'bg-red-50 text-red-700 border-red-200'
+                                        : 'bg-green-50 text-green-700 border-green-200'
+                                }`}
                                 role="alert"
                             >
                                 {message}

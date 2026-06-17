@@ -92,7 +92,7 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
     return (
         <Card title="Thanh toán">
             {/* Order Status Alerts */}
-            {orderStatus === 'PENDING' && (
+            {orderStatus === 'PENDING' ? (
                 <Alert
                     message="Đơn hàng chưa được phục vụ"
                     description={
@@ -104,8 +104,15 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
                     showIcon
                     style={{ marginBottom: 20 }}
                 />
-            )}
-            {orderStatus === 'PAID' && (
+            ) : (!total || total <= 0) ? (
+                <Alert
+                    message="Đơn hàng trống"
+                    description="Không thể thực hiện thanh toán cho đơn hàng không có món ăn nào. Vui lòng thêm món trước."
+                    type="error"
+                    showIcon
+                    style={{ marginBottom: 20 }}
+                />
+            ) : orderStatus === 'PAID' ? (
                 <Alert
                     message="Đơn hàng đã thanh toán"
                     description="Đơn hàng này đã được thanh toán và hoàn tất."
@@ -113,7 +120,7 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
                     showIcon
                     style={{ marginBottom: 20 }}
                 />
-            )}
+            ) : null}
 
             {/* Voucher */}
             <div style={{ marginBottom: 24 }}>
@@ -385,7 +392,9 @@ const PaymentSection: React.FC<PaymentSectionProps> = ({
                             !paymentMethod ||
                             (paymentMethod === 'CASH' && customerCash < displayTotal) ||
                             orderStatus === 'PENDING' ||
-                            orderStatus === 'PAID'
+                            orderStatus === 'PAID' ||
+                            !total ||
+                            total <= 0
                         }
                     >
                         Thanh toán {displayTotal.toLocaleString()} đ
