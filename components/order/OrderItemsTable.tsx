@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Table, Card, Button, Space, message, InputNumber } from 'antd';
 import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import { OrderItem } from './OrderInfoCard';
-import { API_URL } from '@/lib/api/client';
+import { apiPost, apiDelete } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { getToken } from '@/lib/auth/auth-utils';
 
 interface OrderItemsTableProps {
@@ -52,31 +53,18 @@ const OrderItemsTable: React.FC<OrderItemsTableProps> = ({ items, total, orderId
         const token = getToken();
         if (!token) return;
 
-        const url = `${API_URL}/api/orders/${orderId}/items?menuItemId=${itemId}&quantity=${absQty}`;
+        const path = `/api/orders/${orderId}/items?menuItemId=${itemId}&quantity=${absQty}`;
 
-        fetch(url, {
-            method: action === 'add' ? 'POST' : 'DELETE',
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        })
-            .then(async (res) => {
-                if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(text);
-                }
-                // If DELETE returns 204, it might not have JSON
-                if (res.status !== 204) {
-                    return res.json();
-                }
-            })
+        const requestPromise = action === 'add' ? apiPost(path) : apiDelete(path);
+
+        requestPromise
             .then(() => {
                 onUpdate();
                 message.success(action === 'add' ? 'Đã thêm món' : 'Đã giảm số lượng');
             })
             .catch((err) => {
                 console.error(err);
-                message.error('Không thể cập nhật số lượng');
+                message.error(getErrorMessage(err, 'Không thể cập nhật số lượng'));
             });
     };
 

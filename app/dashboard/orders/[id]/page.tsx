@@ -83,6 +83,7 @@ export default function OrderDetailPage() {
     const [qrImageUrl, setQrImageUrl] = useState<string | null>(null);
     const [payUrl, setPayUrl] = useState<string | null>(null);
     const sseRef = useRef<EventSource | null>(null);
+    const sseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [successOpen, setSuccessOpen] = useState<boolean>(false);
 
     // New State for Menu Modal
@@ -182,18 +183,7 @@ export default function OrderDetailPage() {
                             setQrOpen(true);
 
                             // Start SSE to listen for payment completion
-                            if (sseRef.current) {
-                                sseRef.current.close();
-                                sseRef.current = null;
-                            }
-                            const es = new EventSource(`${API_URL}/api/invoices/sse/order/${id}`);
-                            sseRef.current = es;
-                            es.addEventListener('paid', () => {
-                                setQrOpen(false);
-                                es.close();
-                                sseRef.current = null;
-                                router.push('/dashboard/orders');
-                            });
+                            startPaymentSse();
                         } else {
                             message.error('Không tìm thấy link thanh toán PayPal');
                         }
@@ -240,18 +230,7 @@ export default function OrderDetailPage() {
                     setQrOpen(true);
 
                     // SSE subscription
-                    if (sseRef.current) {
-                        sseRef.current.close();
-                        sseRef.current = null;
-                    }
-                    const es = new EventSource(`${API_URL}/api/invoices/sse/order/${id}`);
-                    sseRef.current = es;
-                    es.addEventListener('paid', () => {
-                        setQrOpen(false);
-                        es.close();
-                        sseRef.current = null;
-                        router.push('/dashboard/orders');
-                    });
+                    startPaymentSse();
                 })
                 .catch((err) => message.error(err?.message || 'Không thể tạo hóa đơn thanh toán thẻ'));
             return;
@@ -393,14 +372,47 @@ export default function OrderDetailPage() {
             });
     };
 
+    // Close any open payment SSE connection + clear its timeout.
+    const closePaymentSse = () => {
+        if (sseRef.current) {
+            try { sseRef.current.close(); } catch { }
+            sseRef.current = null;
+        }
+        if (sseTimeoutRef.current) {
+            clearTimeout(sseTimeoutRef.current);
+            sseTimeoutRef.current = null;
+        }
+    };
+
+    // Subscribe to payment-completion events for this order, with error + timeout
+    // handling so the QR modal never hangs forever or leaks the connection.
+    const startPaymentSse = () => {
+        closePaymentSse();
+        const es = new EventSource(`${API_URL}/api/invoices/sse/order/${id}`);
+        sseRef.current = es;
+        es.addEventListener('paid', () => {
+            closePaymentSse();
+            setQrOpen(false);
+            router.push('/dashboard/orders');
+        });
+        es.onerror = () => {
+            // EventSource auto-reconnects on transient errors; only act once it is
+            // definitively closed so we don't reconnect forever silently.
+            if (es.readyState === EventSource.CLOSED) {
+                closePaymentSse();
+                message.error('Mất kết nối theo dõi thanh toán. Vui lòng kiểm tra lại trạng thái đơn hàng.');
+            }
+        };
+        // Safety net: stop waiting after 5 minutes.
+        sseTimeoutRef.current = setTimeout(() => {
+            closePaymentSse();
+            message.warning('Hết thời gian chờ thanh toán. Nếu bạn đã thanh toán, hãy làm mới trang.');
+        }, 5 * 60 * 1000);
+    };
+
     useEffect(() => {
         return () => {
-            if (sseRef.current) {
-                try {
-                    sseRef.current.close();
-                } catch { }
-                sseRef.current = null;
-            }
+            closePaymentSse();
         };
     }, []);
 
@@ -507,6 +519,8 @@ export default function OrderDetailPage() {
                     paymentGateway
                 }}
                 onClose={() => {
+                    // Closing the QR modal stops waiting for payment (avoids leaking the SSE).
+                    closePaymentSse();
                     setQrOpen(false);
                     setSuccessOpen(false);
                     if (successOpen) {

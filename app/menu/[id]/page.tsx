@@ -5,7 +5,8 @@ import { Row, Col, Typography, Button, Spin, Breadcrumb, message } from 'antd';
 import { ShoppingCartOutlined, HomeOutlined, ArrowLeftOutlined, HeartOutlined, ShareAltOutlined, StarOutlined } from '@ant-design/icons';
 import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
-import { API_URL } from '@/lib/api/client';
+import { apiGet } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import FeaturedItems from '@/components/FeaturedItems'; // Reuse for Related Products
@@ -42,13 +43,11 @@ export default function ProductDetailPage() {
         const fetchItem = async () => {
             setLoading(true);
             try {
-                const res = await fetch(`${API_URL}/api/menu-items/${id}`);
-                if (!res.ok) throw new Error('Failed to fetch item');
-                const data = await res.json();
+                const data = await apiGet<MenuItem>(`/api/menu-items/${id}`);
                 setItem(data);
             } catch (error) {
                 console.error(error);
-                message.error('Không thể tải thông tin món ăn');
+                message.error(getErrorMessage(error, 'Không thể tải thông tin món ăn'));
             } finally {
                 setLoading(false);
             }

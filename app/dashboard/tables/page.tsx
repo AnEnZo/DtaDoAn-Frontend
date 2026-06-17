@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Space, Switch, Modal, Form, Input, InputNumber, Tag, App } from 'antd';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { API_URL } from '@/lib/api/client';
-import { getToken } from '@/lib/auth/auth-utils';
+import { apiGet, apiPost } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 
 interface TableData {
     id: number;
@@ -27,19 +27,12 @@ export default function TablesPage() {
     const [form] = Form.useForm<{ name: string; capacity: number; available: boolean }>();
 
     const fetchTables = async () => {
-        const token = getToken();
-        if (!token) return;
-
         try {
-            const response = await fetch(`${API_URL}/api/tables`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setTables(data);
-            }
+            const data = await apiGet<TableData[]>('/api/tables');
+            setTables(data);
         } catch (error) {
             console.error('Lỗi khi tải danh sách bàn:', error);
+            message.error(getErrorMessage(error, 'Lỗi khi tải danh sách bàn'));
         }
     };
 
@@ -60,78 +53,37 @@ export default function TablesPage() {
     }, []);
 
     const createTable = async () => {
-        const token = getToken();
-        if (!token) return;
+        const values = await form.validateFields();
 
         try {
-            const values = await form.validateFields();
-            const response = await fetch(`${API_URL}/api/tables`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(values),
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                setTables((prev) => [...prev, data]);
-                setCreateOpen(false);
-                form.resetFields();
-                message.success('Tạo bàn mới thành công');
-            } else {
-                message.error('Lỗi khi tạo bàn mới');
-            }
+            const data = await apiPost<TableData>('/api/tables', values);
+            setTables((prev) => [...prev, data]);
+            setCreateOpen(false);
+            form.resetFields();
+            message.success('Tạo bàn mới thành công');
         } catch (error) {
             console.error('Lỗi khi tạo bàn mới:', error);
+            message.error(getErrorMessage(error, 'Lỗi khi tạo bàn mới'));
         }
     };
 
     const createOrder = async (tableId: number) => {
-        const token = getToken();
-        if (!token) return;
-
         try {
-            const res = await fetch(`${API_URL}/api/orders`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ tableId }),
-            });
-
-            if (res.ok) {
-                const order = await res.json();
-                router.push(`/dashboard/orders/${order.id}`);
-            } else {
-                message.error('Không thể tạo đơn cho bàn này.');
-            }
+            const order = await apiPost<{ id: number }>('/api/orders', { tableId });
+            router.push(`/dashboard/orders/${order.id}`);
         } catch (error) {
             console.error('Lỗi khi tạo đơn:', error);
-            message.error('Không thể tạo đơn cho bàn này.');
+            message.error(getErrorMessage(error, 'Không thể tạo đơn cho bàn này.'));
         }
     };
 
     const viewOrderDetails = async (tableId: number) => {
-        const token = getToken();
-        if (!token) return;
-
         try {
-            const res = await fetch(`${API_URL}/api/orders/latest-by-table/${tableId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (res.ok) {
-                const order = await res.json();
-                router.push(`/dashboard/orders/${order.id}`);
-            } else {
-                message.error('Không tìm thấy đơn hàng cho bàn này.');
-            }
+            const order = await apiGet<{ id: number }>(`/api/orders/latest-by-table/${tableId}`);
+            router.push(`/dashboard/orders/${order.id}`);
         } catch (error) {
             console.error('Không tìm thấy đơn hàng:', error);
-            message.error('Không tìm thấy đơn hàng cho bàn này.');
+            message.error(getErrorMessage(error, 'Không tìm thấy đơn hàng cho bàn này.'));
         }
     };
 

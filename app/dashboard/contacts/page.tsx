@@ -3,8 +3,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Card, Table, Button, Input, Space, Typography, message, Tag, Modal, Popconfirm } from 'antd';
 import { ReloadOutlined, EyeOutlined, CheckCircleOutlined, DeleteOutlined } from '@ant-design/icons';
-import { API_URL } from '@/lib/api/client';
-import { getToken } from '@/lib/auth/auth-utils';
+import { apiGet, apiPut, apiDelete } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 
 interface ContactMessage {
     id: number;
@@ -30,32 +30,17 @@ export default function ContactsAdminPage() {
     const [total, setTotal] = useState(0);
 
     const fetchContacts = useCallback(async (currentPage = page, currentPageSize = pageSize) => {
-        const token = getToken();
-        if (!token) {
-            message.error('Bạn chưa đăng nhập.');
-            return;
-        }
-
         setLoading(true);
         try {
             // Backend is 0-based index for pages, frontend AntD is 1-based index
-            const response = await fetch(`${API_URL}/api/contacts?page=${currentPage - 1}&size=${currentPageSize}`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                    'Cache-Control': 'no-cache',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Không thể lấy danh sách liên hệ');
-            }
-
-            const data = await response.json();
+            const data = await apiGet<{ content?: ContactMessage[]; totalElements?: number }>(
+                `/api/contacts?page=${currentPage - 1}&size=${currentPageSize}`,
+                { headers: { 'Cache-Control': 'no-cache' } },
+            );
             setContacts(data.content || []);
             setTotal(data.totalElements || 0);
         } catch (err) {
-            message.error('Lỗi khi tải danh sách liên hệ. Vui lòng thử lại.');
+            message.error(getErrorMessage(err, 'Lỗi khi tải danh sách liên hệ. Vui lòng thử lại.'));
             console.error(err);
         } finally {
             setLoading(false);
@@ -84,51 +69,25 @@ export default function ContactsAdminPage() {
     };
 
     const handleMarkAsRead = async (id: number) => {
-        const token = getToken();
-        if (!token) return;
-
         try {
-            const response = await fetch(`${API_URL}/api/contacts/${id}/status?status=READ`, {
-                method: 'PUT',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Lỗi khi cập nhật trạng thái');
-            }
-
+            await apiPut(`/api/contacts/${id}/status?status=READ`);
             message.success('Đã đánh dấu là đã đọc.');
             // Refresh list for current page
             fetchContacts(page, pageSize);
         } catch (err) {
-            message.error('Không thể cập nhật trạng thái liên hệ.');
+            message.error(getErrorMessage(err, 'Không thể cập nhật trạng thái liên hệ.'));
             console.error(err);
         }
     };
 
     const handleMarkAllAsRead = async () => {
-        const token = getToken();
-        if (!token) return;
-
         try {
-            const response = await fetch(`${API_URL}/api/contacts/read-all`, {
-                method: 'PUT',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Lỗi khi đánh dấu đã đọc tất cả');
-            }
-
+            await apiPut('/api/contacts/read-all');
             message.success('Đã đánh dấu đã đọc tất cả các liên hệ.');
             // Refresh list for current page
             fetchContacts(page, pageSize);
         } catch (err) {
-            message.error('Không thể đánh dấu đã đọc tất cả.');
+            message.error(getErrorMessage(err, 'Không thể đánh dấu đã đọc tất cả.'));
             console.error(err);
         }
     };
@@ -144,25 +103,12 @@ export default function ContactsAdminPage() {
     };
 
     const handleDelete = async (id: number) => {
-        const token = getToken();
-        if (!token) return;
-
         try {
-            const response = await fetch(`${API_URL}/api/contacts/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Lỗi khi xóa liên hệ');
-            }
-
+            await apiDelete(`/api/contacts/${id}`);
             message.success('Đã xóa liên hệ.');
             fetchContacts(page, pageSize);
         } catch (err) {
-            message.error('Không thể xóa liên hệ.');
+            message.error(getErrorMessage(err, 'Không thể xóa liên hệ.'));
             console.error(err);
         }
     };

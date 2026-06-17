@@ -34,7 +34,8 @@ import {
     UploadOutlined,
     DeleteOutlined as DeleteImageOutlined,
 } from '@ant-design/icons';
-import { API_URL } from '@/lib/api/client';
+import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { getToken } from '@/lib/auth/auth-utils';
 import { uploadImageViaBackend } from '@/lib/cloudinary/upload';
 
@@ -87,16 +88,12 @@ export default function VoucherManagerPage() {
         if (!token) return;
 
         try {
-            const response = await fetch(`${API_URL}/api/vouchers`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!response.ok) throw new Error('Failed to fetch vouchers');
-            const data: Voucher[] = await response.json();
+            const data = await apiGet<Voucher[]>(`/api/vouchers`);
             setVouchers(data);
             applyFilters(data, filterType, filterStatus, searchTerm);
         } catch (e) {
             console.error(e);
-            message.error('Không thể tải danh sách voucher');
+            message.error(getErrorMessage(e, 'Không thể tải danh sách voucher'));
         }
     };
 
@@ -156,16 +153,7 @@ export default function VoucherManagerPage() {
                 return;
             }
 
-            const res = await fetch(`${API_URL}/api/vouchers`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ ...form, imageUrl }),
-            });
-
-            if (!res.ok) throw new Error('Failed to create voucher');
+            await apiPost(`/api/vouchers`, { ...form, imageUrl });
 
             message.success('Thêm voucher thành công');
             resetCreateForm();
@@ -173,7 +161,7 @@ export default function VoucherManagerPage() {
             await fetchAll();
         } catch (e) {
             console.error(e);
-            message.error('Thêm thất bại');
+            message.error(getErrorMessage(e, 'Thêm thất bại'));
         } finally {
             setUploadingNew(false);
         }
@@ -184,18 +172,13 @@ export default function VoucherManagerPage() {
         if (!token) return;
 
         try {
-            const res = await fetch(`${API_URL}/api/vouchers/${id}`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (!res.ok) throw new Error('Failed to delete voucher');
+            await apiDelete(`/api/vouchers/${id}`);
 
             message.success('Xóa thành công');
             await fetchAll();
         } catch (e) {
             console.error(e);
-            message.error('Xóa thất bại, kiểm tra ràng buộc');
+            message.error(getErrorMessage(e, 'Xóa thất bại, kiểm tra ràng buộc'));
         }
     };
 
@@ -204,22 +187,13 @@ export default function VoucherManagerPage() {
         if (!token) return;
 
         try {
-            const res = await fetch(`${API_URL}/api/vouchers/${voucher.id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ ...voucher, active: !voucher.active }),
-            });
-
-            if (!res.ok) throw new Error('Failed to update voucher');
+            await apiPatch(`/api/vouchers/${voucher.id}`, { ...voucher, active: !voucher.active });
 
             message.success(`${!voucher.active ? 'Kích hoạt' : 'Tắt'} voucher thành công`);
             await fetchAll();
         } catch (e) {
             console.error(e);
-            message.error('Cập nhật thất bại');
+            message.error(getErrorMessage(e, 'Cập nhật thất bại'));
         }
     };
 
@@ -316,16 +290,7 @@ export default function VoucherManagerPage() {
                 return;
             }
 
-            const res = await fetch(`${API_URL}/api/vouchers/${editVoucher.id}`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ ...editVoucher, imageUrl }),
-            });
-
-            if (!res.ok) throw new Error('Failed to update voucher');
+            await apiPatch(`/api/vouchers/${editVoucher.id}`, { ...editVoucher, imageUrl });
 
             message.success('Cập nhật thành công');
             resetEditForm();
@@ -333,7 +298,7 @@ export default function VoucherManagerPage() {
             await fetchAll();
         } catch (error) {
             console.error(error);
-            message.error('Cập nhật thất bại');
+            message.error(getErrorMessage(error, 'Cập nhật thất bại'));
         } finally {
             setUploadingEdit(false);
         }

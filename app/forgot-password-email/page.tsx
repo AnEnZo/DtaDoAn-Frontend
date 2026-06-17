@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { API_URL } from '@/lib/api/client';
+import { apiPost } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 
 export default function ForgotPasswordEmailPage() {
     const [username, setUsername] = useState<string>('');
@@ -20,18 +21,16 @@ export default function ForgotPasswordEmailPage() {
         }
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/api/auth/forgot-password-email`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username }),
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.message || 'Lỗi khi gửi OTP');
-            setMessage(data.message);
+            const data = await apiPost<{ message?: string }>(
+                '/api/auth/forgot-password-email',
+                { username },
+                { auth: false, errorMessage: 'Lỗi khi gửi OTP' }
+            );
+            setMessage(data?.message ?? 'OTP đã được gửi đến email');
             // Chuyển sang trang nhập OTP sau 2s
             setTimeout(() => router.push('/reset-password-email'), 2000);
-        } catch (err: any) {
-            setMessage(err.message);
+        } catch (err) {
+            setMessage(getErrorMessage(err, 'Lỗi khi gửi OTP'));
         } finally {
             setLoading(false);
         }

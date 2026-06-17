@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
     Card,
     Table,
@@ -60,6 +60,20 @@ export default function OrdersPage() {
     const [range, setRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
     const [isFiltering, setIsFiltering] = useState(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // Surface PayPal redirect result (the backend redirects here with ?paypal_status=).
+    useEffect(() => {
+        const status = searchParams.get('paypal_status');
+        if (!status) return;
+        if (status === 'success') {
+            message.success('Thanh toán PayPal thành công!');
+        } else if (status === 'cancel') {
+            message.warning('Bạn đã hủy thanh toán PayPal. Đơn hàng vẫn chưa được thanh toán.');
+        }
+        // Clean the query param so the toast doesn't reappear on refresh.
+        router.replace('/dashboard/orders');
+    }, [searchParams, message, router]);
 
     const fetchOrders = async () => {
         const token = getToken();

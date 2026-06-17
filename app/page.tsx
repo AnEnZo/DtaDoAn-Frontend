@@ -9,6 +9,8 @@ import { FaGoogle } from 'react-icons/fa';
 import { Button } from 'antd';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { API_URL } from '@/lib/api/client';
+import { apiPost } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { useAuthStore } from '@/lib/store/auth-store';
 
 interface LoginFormData {
@@ -28,6 +30,10 @@ export default function LoginPage() {
     const errorParam = searchParams.get('error');
     if (errorParam) {
       setMessage(errorParam);
+      return;
+    }
+    if (searchParams.get('session') === 'expired') {
+      setMessage('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
     }
   }, [searchParams]);
 
@@ -61,23 +67,15 @@ export default function LoginPage() {
     setIsLoading(true);
     setMessage('');
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const errorText = await res.text();
-        if (res.status === 403 && errorText.includes('vô hiệu hóa')) {
-          throw new Error('Tài khoản của bạn đã bị vô hiệu hóa.');
-        }
-        throw new Error('Tên đăng nhập hoặc mật khẩu không chính xác.');
-      }
-      const responseData = await res.json();
+      // Backend returns a friendly message + correct status (401 sai thông tin, 403 bị khóa).
+      const responseData = await apiPost<{ token?: string }>('/api/auth/login', data, { auth: false });
 
+      if (!responseData?.token) {
+        throw new Error('Phản hồi đăng nhập không hợp lệ, vui lòng thử lại.');
+      }
       handleLoginSuccess(responseData.token);
-    } catch (err: any) {
-      setMessage(err.message);
+    } catch (err) {
+      setMessage(getErrorMessage(err, 'Tên đăng nhập hoặc mật khẩu không chính xác.'));
     } finally {
       setIsLoading(false);
     }

@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { API_URL } from '@/lib/api/client';
+import { apiGet } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 interface ItemStatsDTO {
@@ -42,53 +43,14 @@ const TopItems: React.FC<TopItemsProps> = ({ topN = 3 }) => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Note: In the original code, it attached token if present.
-        // Our apiClient handles this, but here we are using fetch directly to match original logic structure
-        // or we can switch to apiClient. Let's stick to fetch with manual header for now to be safe, 
-        // or better, just use the token from useAuth if we want to be consistent.
-        // However, the original code used sessionStorage. 
-        // Let's use the API_URL.
-
-        // Actually, for public data like top items, maybe auth isn't strictly required by backend?
-        // The original code sent it if available.
-
-        // Let's use fetch with API_URL.
-
-        // We need to get the token. useAuth provides it via cookies, but we might not need it if the endpoint is public.
-        // Assuming it might be public or we just pass what we have.
-
-        // Wait, useAuth doesn't expose the raw token string directly in the return object I designed earlier?
-        // Let's check useAuth.ts.
-        // It exposes `login`, `logout`, `user`, `roles`. It doesn't expose the raw token string directly 
-        // unless we get it from cookies again.
-        // But `lib/auth/auth-utils.ts` has `getToken()`.
-
-        // Let's import getToken from auth-utils.
-        const token = import('@/lib/auth/auth-utils').then(m => m.getToken());
-
-        // Actually, let's just use the simple fetch for now.
-
         const fetchItems = async () => {
             try {
-                const { getToken } = await import('@/lib/auth/auth-utils');
-                const token = getToken();
-
-                const headers: HeadersInit = {};
-                if (token) {
-                    headers.Authorization = `Bearer ${token}`;
-                }
-
-                const res = await fetch(`${API_URL}/api/revenues/items/top?topN=${topN}`, {
-                    headers,
-                });
-
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const data = await res.json();
+                const data = await apiGet<ItemStatsDTO[]>(`/api/revenues/items/top?topN=${topN}`);
                 setItems(data);
                 setLoading(false);
             } catch (err) {
                 console.error(err);
-                setError('Không tải được dữ liệu.');
+                setError(getErrorMessage(err, 'Không tải được dữ liệu.'));
                 setLoading(false);
             }
         };

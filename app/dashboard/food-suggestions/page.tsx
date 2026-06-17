@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Input, Space, Typography, message, Tag } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
-import { API_URL } from '@/lib/api/client';
+import { apiGet } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { getToken } from '@/lib/auth/auth-utils';
 
 interface FoodSuggestion {
@@ -31,23 +32,13 @@ export default function FoodSuggestionsPage() {
 
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/api/food-suggestions`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                    'Cache-Control': 'no-cache',
-                },
+            const data = await apiGet<FoodSuggestion[]>(`/api/food-suggestions`, {
+                headers: { 'Cache-Control': 'no-cache' },
             });
-
-            if (!response.ok) {
-                throw new Error('Không thể lấy danh sách gợi ý');
-            }
-
-            const data: FoodSuggestion[] = await response.json();
             setSuggestions(data);
             setSearch('');
         } catch (err) {
-            message.error('Lỗi khi tải gợi ý món ăn. Vui lòng thử lại.');
+            message.error(getErrorMessage(err, 'Lỗi khi tải gợi ý món ăn. Vui lòng thử lại.'));
             console.error(err);
         } finally {
             setLoading(false);

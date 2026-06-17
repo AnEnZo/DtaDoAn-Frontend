@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Row, Col, Card, Typography, InputNumber, Button, Pagination, Empty } from 'antd';
+import { Row, Col, Card, Typography, InputNumber, Button, Pagination, Empty, message } from 'antd';
 import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import Link from 'next/link';
 import Image from 'next/image';
-import { API_URL } from '@/lib/api/client';
+import { apiGet, apiPost, apiDelete } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 export interface MenuItem {
@@ -50,25 +51,17 @@ const MenuItemList: React.FC<Props> = ({ categoryName, categoryId, orderId, onCh
         const fetchItems = async () => {
             setLoading(true);
             try {
-                const { getToken } = await import('@/lib/auth/auth-utils');
-                const token = getToken();
-                const headers: HeadersInit = {};
-                if (token) {
-                    headers.Authorization = `Bearer ${token}`;
-                }
-
                 // Use categoryId if available, fallback to legacy name check or "all"
-                let url = `${API_URL}/api/menu-items`;
+                let path = `/api/menu-items`;
 
                 if (categoryId !== undefined && categoryId !== -1) {
-                    url = `${API_URL}/api/menu-items/category/id/${categoryId}`;
+                    path = `/api/menu-items/category/id/${categoryId}`;
                 } else if (categoryName && categoryName !== 'Tất cả' && categoryId === undefined) {
                     // Fallback for legacy usage if categoryId is not provided
-                    url = `${API_URL}/api/menu-items/category/${categoryName}`;
+                    path = `/api/menu-items/category/${categoryName}`;
                 }
 
-                const res = await fetch(url, { headers });
-                const data = await res.json();
+                const data = await apiGet<MenuItem[]>(path);
 
                 setItems(data);
                 const initial: Record<number, number> = {};
@@ -80,6 +73,7 @@ const MenuItemList: React.FC<Props> = ({ categoryName, categoryId, orderId, onCh
                 setLoading(false);
             } catch (err) {
                 console.error(err);
+                message.error(getErrorMessage(err, 'Không thể tải danh sách món.'));
                 setLoading(false);
             }
         };
@@ -94,47 +88,28 @@ const MenuItemList: React.FC<Props> = ({ categoryName, categoryId, orderId, onCh
     const addItem = async (id: number) => {
         if (!orderId || !onChange) return;
         const qty = quantities[id] || 1;
-        const url = `${API_URL}/api/orders/${orderId}/items?menuItemId=${id}&quantity=${qty}`;
+        const path = `/api/orders/${orderId}/items?menuItemId=${id}&quantity=${qty}`;
 
         try {
-            const { getToken } = await import('@/lib/auth/auth-utils');
-            const token = getToken();
-
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            if (!res.ok) throw new Error();
-            await res.json();
+            await apiPost(path);
             onChange();
         } catch (error) {
             console.error(error);
+            message.error(getErrorMessage(error, 'Không thể thêm món.'));
         }
     };
 
     const removeItem = async (id: number) => {
         if (!orderId || !onChange) return;
         const qty = quantities[id] || 1;
-        const url = `${API_URL}/api/orders/${orderId}/items?menuItemId=${id}&quantity=${qty}`;
+        const path = `/api/orders/${orderId}/items?menuItemId=${id}&quantity=${qty}`;
 
         try {
-            const { getToken } = await import('@/lib/auth/auth-utils');
-            const token = getToken();
-
-            const res = await fetch(url, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-
-            if (res.status !== 204) await res.json();
+            await apiDelete(path);
             onChange();
         } catch (error) {
             console.error(error);
+            message.error(getErrorMessage(error, 'Không thể xóa món.'));
         }
     };
 

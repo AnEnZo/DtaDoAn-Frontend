@@ -37,6 +37,19 @@ function decodeJwt(token: string): Record<string, unknown> | null {
 }
 
 /**
+ * Check a JWT is present, decodable and not expired.
+ */
+function isTokenValid(token: string | undefined): boolean {
+  if (!token) return false;
+  const payload = decodeJwt(token);
+  if (!payload) return false;
+  const exp = payload.exp as number | undefined;
+  if (!exp) return false;
+  const now = Math.floor(Date.now() / 1000);
+  return exp > now;
+}
+
+/**
  * Get user's primary role from token
  */
 function getUserRole(payload: Record<string, unknown>): string | null {
@@ -78,19 +91,23 @@ export function middleware(request: NextRequest) {
 
     // Get JWT token from cookies
     const token = request.cookies.get('jwtToken')?.value;
+    const hasValidToken = isTokenValid(token);
 
-    // If accessing protected route without token, redirect to login
-    if (isProtectedRoute && !token) {
+    // If accessing protected route without a valid (non-expired) token, redirect to login
+    if (isProtectedRoute && !hasValidToken) {
         const loginUrl = new URL('/', request.url);
         // Store intended destination for post-login redirect
         loginUrl.searchParams.set('redirect', pathname);
+        if (token) loginUrl.searchParams.set('session', 'expired');
         const response = NextResponse.redirect(loginUrl);
         response.cookies.set('redirect_uri', pathname, { path: '/', maxAge: 300 });
+        // Clear the stale/expired token so the user can log in again
+        if (token) response.cookies.delete('jwtToken');
         return response;
     }
 
-    // If accessing login page with valid token, smart redirect based on role
-    if (pathname === '/' && token) {
+    // If accessing login page with a valid token, smart redirect based on role
+    if (pathname === '/' && hasValidToken && token) {
         const payload = decodeJwt(token);
 
         if (payload) {

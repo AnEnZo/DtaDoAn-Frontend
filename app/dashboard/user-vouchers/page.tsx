@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { Card, Space, Input, Button, List, Typography, Modal, Image, Alert, Badge, Tag, Row, Col, Empty, Tooltip, message } from 'antd';
 import Link from 'next/link';
 import { QrcodeOutlined, HomeOutlined, GiftOutlined, SearchOutlined, ReloadOutlined, TrophyOutlined, ClockCircleOutlined, FireOutlined } from '@ant-design/icons';
-import { API_URL } from '@/lib/api/client';
+import { apiGet, apiPost, request } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { getToken, parseJwt } from '@/lib/auth/auth-utils';
 import { useAuth } from '@/lib/hooks/useAuth';
 
@@ -54,11 +55,7 @@ export default function UserVoucherManagerPage() {
         if (!token) return;
 
         try {
-            const res = await fetch(`${API_URL}/api/vouchers?username=${username}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) throw new Error('Failed to fetch vouchers');
-            const data = await res.json();
+            const data = await apiGet<any>(`/api/vouchers?username=${username}`);
 
             if (data.userPoints !== undefined) {
                 setVouchers(data.vouchers);
@@ -71,7 +68,7 @@ export default function UserVoucherManagerPage() {
             }
         } catch (err) {
             console.error(err);
-            setError('❌ Không thể tải danh sách voucher');
+            setError(getErrorMessage(err, '❌ Không thể tải danh sách voucher'));
         }
     };
 
@@ -86,15 +83,11 @@ export default function UserVoucherManagerPage() {
         if (!token) return;
 
         try {
-            const res = await fetch(`${API_URL}/api/user-vouchers/${username}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) throw new Error('Failed to fetch used vouchers');
-            const data = await res.json();
+            const data = await apiGet<UsedVoucher[]>(`/api/user-vouchers/${username}`);
             setUsedVouchers(data);
         } catch (err) {
             console.error(err);
-            setError('❌ Không thể tải các voucher đã đổi');
+            setError(getErrorMessage(err, '❌ Không thể tải các voucher đã đổi'));
         } finally {
             setLoadingUsedVouchers(false);
             setUsedVoucherLoaded(true);
@@ -124,25 +117,16 @@ export default function UserVoucherManagerPage() {
         if (!token) return;
 
         try {
-            const res = await fetch(
-                `${API_URL}/api/user-vouchers/exchange?username=${encodeURIComponent(username)}&voucherCode=${encodeURIComponent(voucher.code)}`,
-                {
-                    method: 'POST',
-                    headers: { Authorization: `Bearer ${token}` },
-                }
+            await apiPost(
+                `/api/user-vouchers/exchange?username=${encodeURIComponent(username)}&voucherCode=${encodeURIComponent(voucher.code)}`
             );
-
-            if (!res.ok) {
-                if (res.status === 400) throw new Error('⚠️ Không đủ điểm hoặc không hợp lệ.');
-                throw new Error('❌ Lỗi khi đổi voucher.');
-            }
 
             setMsg(`🎉 Đổi voucher ${voucher.code} thành công!`);
             await fetchAll();
             setTimeout(() => setMsg(''), 3000);
         } catch (err: any) {
             console.error(err);
-            setError(err.message);
+            setError(getErrorMessage(err, '❌ Lỗi khi đổi voucher.'));
         }
     };
 
@@ -400,13 +384,10 @@ export default function UserVoucherManagerPage() {
                                                             const token = getToken();
                                                             if (!token) return;
                                                             try {
-                                                                const qrRes = await fetch(
-                                                                    `${API_URL}/api/user-vouchers/${uv.id}/qrcode`,
-                                                                    {
-                                                                        headers: { Authorization: `Bearer ${token}` },
-                                                                    }
+                                                                const qrRes = await request<Response>(
+                                                                    `/api/user-vouchers/${uv.id}/qrcode`,
+                                                                    { parseJson: false }
                                                                 );
-                                                                if (!qrRes.ok) throw new Error('Failed to fetch QR');
                                                                 const buffer = await qrRes.arrayBuffer();
                                                                 const base64 = await arrayBufferToBase64(buffer);
                                                                 const dataUrl = `data:image/png;base64,${base64}`;
@@ -415,7 +396,7 @@ export default function UserVoucherManagerPage() {
                                                                 setQrModalOpen(true);
                                                             } catch (err) {
                                                                 console.error('Lỗi khi tải QR code', err);
-                                                                setError('Không thể tải mã QR.');
+                                                                setError(getErrorMessage(err, 'Không thể tải mã QR.'));
                                                             }
                                                         }}
                                                         block

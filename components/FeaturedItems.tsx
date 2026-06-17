@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { API_URL } from '@/lib/api/client';
+import { apiGet } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { motion } from 'framer-motion';
 
 interface MenuItem {
@@ -27,26 +28,12 @@ const FeaturedItems: React.FC<FeaturedItemsProps> = () => {
             try {
                 // Fetch ALL items by using a large limit
                 const limit = 100;
-                const res = await fetch(`${API_URL}/api/menu-items?limit=${limit}`);
-
-                if (!res.ok) {
-                    const errorText = await res.text();
-                    console.error('❌ API Error Details:', {
-                        status: res.status,
-                        statusText: res.statusText,
-                        url: res.url,
-                        errorBody: errorText
-                    });
-                    throw new Error(`HTTP ${res.status}: ${errorText}`);
-                }
-                const data = await res.json();
-                console.log('✅ API Response:', data);
+                const data = await apiGet<MenuItem[]>(`/api/menu-items?limit=${limit}`);
                 setItems(data);
                 setLoading(false);
             } catch (err) {
-                console.error('❌ Fetch Error:', err);
-                console.error('Error stack:', (err as Error).stack);
-                setError('Không thể tải danh sách món.');
+                console.error(err);
+                setError(getErrorMessage(err, 'Không thể tải danh sách món.'));
                 setLoading(false);
             }
         };

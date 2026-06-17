@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Statistic, Typography, Table, List, Avatar, InputNumber, Button, Space } from 'antd';
+import { Row, Col, Card, Statistic, Typography, Table, List, Avatar, InputNumber, Button, Space, message } from 'antd';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { API_URL } from '@/lib/api/client';
-import { getToken } from '@/lib/auth/auth-utils';
+import { apiGet } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -54,17 +54,11 @@ export default function DashboardPage() {
         const fetchSummary = async () => {
             try {
                 setSummaryLoading(true);
-                const token = getToken();
-                if (!token) return;
-                const res = await fetch(`${API_URL}/api/dashboard/summary`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setSummary(data);
-                }
+                const data = await apiGet<typeof summary>('/api/dashboard/summary');
+                setSummary(data);
             } catch (e) {
                 console.error(e);
+                message.error(getErrorMessage(e, 'Lỗi khi tải số liệu tổng quan'));
             } finally {
                 setSummaryLoading(false);
             }
@@ -79,8 +73,6 @@ export default function DashboardPage() {
         const fetchLast7Days = async () => {
             try {
                 setRevLoading(true);
-                const token = getToken();
-                if (!token) return;
 
                 const today = new Date();
                 const days = Array.from({ length: 7 }, (_, i) => {
@@ -97,10 +89,7 @@ export default function DashboardPage() {
                 const results = await Promise.all(
                     days.map(async (day) => {
                         try {
-                            const res = await fetch(`${API_URL}/api/revenues/date/${day.iso}`, {
-                                headers: { Authorization: `Bearer ${token}` },
-                            });
-                            const data = await res.json();
+                            const data = await apiGet<number>(`/api/revenues/date/${day.iso}`);
                             return {
                                 label: day.label,
                                 revenue: typeof data === 'number' ? data : Number(data),
@@ -111,6 +100,9 @@ export default function DashboardPage() {
                     })
                 );
                 setRevenue7Days(results);
+            } catch (e) {
+                console.error(e);
+                message.error(getErrorMessage(e, 'Lỗi khi tải doanh thu 7 ngày'));
             } finally {
                 setRevLoading(false);
             }
@@ -125,23 +117,17 @@ export default function DashboardPage() {
         const fetchTopItems = async () => {
             try {
                 setTopItemsLoading(true);
-                const token = getToken();
-                if (!token) return;
-
-                const res = await fetch(`${API_URL}/api/revenues/items/top?topN=${topN}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-                    const mapped = (Array.isArray(data) ? data : []).map((it: any) => ({
-                        itemName: it.itemName,
-                        quantitySold: Number(it.quantitySold),
-                        price: Number(it.price),
-                        imageUrl: it.imageUrl,
-                    }));
-                    setTopItems(mapped);
-                }
+                const data = await apiGet<any[]>(`/api/revenues/items/top?topN=${topN}`);
+                const mapped = (Array.isArray(data) ? data : []).map((it: any) => ({
+                    itemName: it.itemName,
+                    quantitySold: Number(it.quantitySold),
+                    price: Number(it.price),
+                    imageUrl: it.imageUrl,
+                }));
+                setTopItems(mapped);
+            } catch (e) {
+                console.error(e);
+                message.error(getErrorMessage(e, 'Lỗi khi tải món bán chạy'));
             } finally {
                 setTopItemsLoading(false);
             }
@@ -155,36 +141,28 @@ export default function DashboardPage() {
     useEffect(() => {
         const fetchRecent = async () => {
             try {
-                const token = getToken();
-                if (!token) return;
-
-                const res = await fetch(`${API_URL}/api/orders?page=0&size=5&sort=orderTime,desc`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                const page = await apiGet<any>('/api/orders?page=0&size=5&sort=orderTime,desc');
+                const rows = (page?.content || []).map((o: any) => {
+                    const items = Array.isArray(o.orderItems) ? o.orderItems : [];
+                    const totalNum = items.reduce(
+                        (sum: number, it: any) =>
+                            sum + Number(it?.menuItem?.price || 0) * Number(it?.quantity || 0),
+                        0,
+                    );
+                    return {
+                        key: String(o.id),
+                        id: `#${o.id}`,
+                        table: o?.table?.name || '-',
+                        customer: o?.customer?.displayName || '-',
+                        total: `${totalNum.toLocaleString('vi-VN')}₫`,
+                        status: String(o?.status || ''),
+                        time: o?.orderTime ? new Date(o.orderTime).toLocaleString('vi-VN') : '',
+                    };
                 });
-
-                if (res.ok) {
-                    const page = await res.json();
-                    const rows = (page?.content || []).map((o: any) => {
-                        const items = Array.isArray(o.orderItems) ? o.orderItems : [];
-                        const totalNum = items.reduce(
-                            (sum: number, it: any) =>
-                                sum + Number(it?.menuItem?.price || 0) * Number(it?.quantity || 0),
-                            0,
-                        );
-                        return {
-                            key: String(o.id),
-                            id: `#${o.id}`,
-                            table: o?.table?.name || '-',
-                            customer: o?.customer?.displayName || '-',
-                            total: `${totalNum.toLocaleString('vi-VN')}₫`,
-                            status: String(o?.status || ''),
-                            time: o?.orderTime ? new Date(o.orderTime).toLocaleString('vi-VN') : '',
-                        };
-                    });
-                    setRecentOrders(rows);
-                }
+                setRecentOrders(rows);
             } catch (e) {
-                // fail silently
+                console.error(e);
+                message.error(getErrorMessage(e, 'Lỗi khi tải đơn hàng gần đây'));
             }
         };
         fetchRecent();

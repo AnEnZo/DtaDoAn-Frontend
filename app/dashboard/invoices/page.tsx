@@ -16,7 +16,8 @@ import {
     message,
 } from 'antd';
 import dayjs, { Dayjs } from 'dayjs';
-import { API_URL } from '@/lib/api/client';
+import { apiGet, apiDelete, request } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { getToken, parseJwt } from '@/lib/auth/auth-utils';
 import { useAuth } from '@/lib/hooks/useAuth';
 
@@ -78,20 +79,12 @@ export default function InvoicePage() {
                 if (isFiltering && range && range[0] && range[1]) {
                     const start = range[0].format('YYYY-MM-DD');
                     const end = range[1].format('YYYY-MM-DD');
-                    return `${API_URL}/api/invoices/filter?start=${start}&end=${end}&page=${page}&size=${size}&sortBy=paymentTime&sortDir=desc`;
+                    return `/api/invoices/filter?start=${start}&end=${end}&page=${page}&size=${size}&sortBy=paymentTime&sortDir=desc`;
                 }
-                return `${API_URL}/api/invoices?page=${page}&size=${size}&sortBy=paymentTime&sortDir=desc&_=${new Date().getTime()}`;
+                return `/api/invoices?page=${page}&size=${size}&sortBy=paymentTime&sortDir=desc&_=${new Date().getTime()}`;
             })();
 
-            const response = await fetch(url, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to fetch invoices');
-            }
-
-            const data: ApiResponse = await response.json();
+            const data = await apiGet<ApiResponse>(url);
             const invoiceData = data.content || [];
             const formatted = invoiceData.map(mapInvoiceData);
             setInvoices(formatted);
@@ -99,7 +92,7 @@ export default function InvoicePage() {
             setError(null);
         } catch (error: any) {
             console.error('Lỗi khi lấy hóa đơn:', error);
-            setError('Không thể tải danh sách hóa đơn.');
+            setError(getErrorMessage(error, 'Không thể tải danh sách hóa đơn.'));
         }
     };
 
@@ -116,22 +109,14 @@ export default function InvoicePage() {
         if (!token) return;
 
         try {
-            const response = await fetch(`${API_URL}/api/invoices/${id}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (!response.ok) {
-                throw new Error('Invoice not found');
-            }
-
-            const data = await response.json();
+            const data = await apiGet<any>(`/api/invoices/${id}`);
             const formatted = mapInvoiceData(data);
             setInvoices([formatted]);
             setError(null);
         } catch (error: any) {
             console.error('Không tìm thấy hóa đơn:', error);
             setInvoices([]);
-            setError(`Không tìm thấy hóa đơn với ID: ${id}`);
+            setError(getErrorMessage(error, `Không tìm thấy hóa đơn với ID: ${id}`));
         }
     };
 
@@ -140,11 +125,7 @@ export default function InvoicePage() {
         if (!token) return;
 
         try {
-            const response = await fetch(`${API_URL}/api/invoices/${id}/export/excel`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (!response.ok) throw new Error('Export failed');
+            const response = await request<Response>(`/api/invoices/${id}/export/excel`, { parseJson: false });
 
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
@@ -157,7 +138,7 @@ export default function InvoicePage() {
             window.URL.revokeObjectURL(url);
         } catch (error) {
             console.error('Lỗi khi xuất Excel:', error);
-            message.error('Lỗi khi xuất Excel');
+            message.error(getErrorMessage(error, 'Lỗi khi xuất Excel'));
         }
     };
 
@@ -166,11 +147,7 @@ export default function InvoicePage() {
         if (!token) return;
 
         try {
-            const response = await fetch(`${API_URL}/api/invoices/${id}/export/word`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (!response.ok) throw new Error('Export failed');
+            const response = await request<Response>(`/api/invoices/${id}/export/word`, { parseJson: false });
 
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
@@ -183,7 +160,7 @@ export default function InvoicePage() {
             window.URL.revokeObjectURL(url);
         } catch (error: any) {
             console.error('Lỗi khi xuất Word:', error);
-            message.error('Lỗi khi xuất Word');
+            message.error(getErrorMessage(error, 'Lỗi khi xuất Word'));
         }
     };
 
@@ -193,18 +170,13 @@ export default function InvoicePage() {
         if (!token) return;
 
         try {
-            const response = await fetch(`${API_URL}/api/invoices?invoiceId=${id}`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (!response.ok) throw new Error('Delete failed');
+            await apiDelete(`/api/invoices?invoiceId=${id}`);
 
             setInvoices((prev) => prev.filter((invoice) => invoice.id !== id));
             message.success('Xóa hóa đơn thành công');
         } catch (error: any) {
             console.error('Lỗi khi xóa hóa đơn:', error);
-            message.error('Không thể xóa hóa đơn');
+            message.error(getErrorMessage(error, 'Không thể xóa hóa đơn'));
         }
     };
 

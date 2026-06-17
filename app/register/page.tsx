@@ -7,7 +7,8 @@ import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle, Check, Loader2 } from 'lucide-react';
-import { API_URL } from '@/lib/api/client';
+import { apiPost } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import {
     registerSchema,
     RegisterFormData,
@@ -80,31 +81,14 @@ export default function RegisterPage() {
     const onSubmit = async (data: RegisterFormData) => {
         setGlobalError('');
         try {
-            const res = await fetch(`${API_URL}/api/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data),
-            });
-            if (res.status === 201) {
-                router.push('/');
-            } else {
-                let errorMsg = await res.text();
-                // Check if response is JSON (e.g. from GlobalExceptionHandler)
-                try {
-                    const parsed = JSON.parse(errorMsg);
-                    if (parsed && parsed.message) {
-                        errorMsg = parsed.message;
-                    }
-                } catch (e) {
-                    // Raw string
-                }
-                const unmappableError = mapApiErrorToFields(errorMsg, setError, setFocus);
-                if (unmappableError) {
-                    setGlobalError(unmappableError);
-                }
-            }
+            await apiPost('/api/auth/register', data, { auth: false });
+            router.push('/');
         } catch (err: any) {
-            setGlobalError('Lỗi kết nối đến máy chủ. Vui lòng kiểm tra mạng!');
+            const errorMsg = getErrorMessage(err, 'Lỗi kết nối đến máy chủ. Vui lòng kiểm tra mạng!');
+            const unmappableError = mapApiErrorToFields(errorMsg, setError, setFocus);
+            if (unmappableError) {
+                setGlobalError(unmappableError);
+            }
         }
     };
 

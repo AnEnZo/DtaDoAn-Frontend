@@ -24,7 +24,8 @@ import {
     InstagramOutlined,
     DatabaseOutlined,
 } from '@ant-design/icons';
-import { API_URL } from '@/lib/api/client';
+import { apiGet, apiPost } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { getToken } from '@/lib/auth/auth-utils';
 import type { Dayjs } from 'dayjs';
 
@@ -54,8 +55,8 @@ interface PageMetadata {
     has_previous: boolean;
 }
 
-interface PagedTrends {
-    content: FoodTrendItem[];
+interface PagedTrends<T = FoodTrendItem> {
+    content: T[];
     pagination: PageMetadata;
 }
 
@@ -118,7 +119,7 @@ interface RawTrendsResponse {
     geo: string;
     date: string | null;
     dataSource: string | null;
-    pagedTrends: PagedTrends;
+    pagedTrends: PagedTrends<RawTrendItem>;
 }
 
 // ============================================================
@@ -256,15 +257,12 @@ function TodayTab() {
         if (!token) { message.error('Chưa đăng nhập.'); return; }
         setLoading(true);
         try {
-            const res = await fetch(
-                `${API_URL}/api/serpapi/food-trends/today?geo=${GEO}&limit=${LIMIT}`,
-                { headers: { Authorization: `Bearer ${token}` } }
+            const body = await apiGet<FoodTrendsResponse>(
+                `/api/serpapi/food-trends/today?geo=${GEO}&limit=${LIMIT}`
             );
-            if (!res.ok) throw new Error('Lỗi API');
-            const body: FoodTrendsResponse = await res.json();
             setData(body.trends ?? []);
-        } catch {
-            message.error('Không thể tải dữ liệu hôm nay.');
+        } catch (err) {
+            message.error(getErrorMessage(err, 'Không thể tải dữ liệu hôm nay.'));
         } finally {
             setLoading(false);
         }
@@ -275,12 +273,9 @@ function TodayTab() {
         if (!token) { message.error('Chưa đăng nhập.'); return; }
         setPipelineRunning(true);
         try {
-            const res = await fetch(
-                `${API_URL}/api/serpapi/food-trends/pipeline?geo=${GEO}&hours=24`,
-                { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
+            const result = await apiPost<PipelineResult>(
+                `/api/serpapi/food-trends/pipeline?geo=${GEO}&hours=24`
             );
-            if (!res.ok) throw new Error('Lỗi pipeline');
-            const result: PipelineResult = await res.json();
             setLastPipeline(result);
             if (result.analyze.foodTrendsFound > 0) {
                 message.success(
@@ -292,8 +287,8 @@ function TodayTab() {
                 );
             }
             await fetchToday(); // reload bảng
-        } catch {
-            message.error('Chạy pipeline thất bại. Vui lòng thử lại.');
+        } catch (err) {
+            message.error(getErrorMessage(err, 'Chạy pipeline thất bại. Vui lòng thử lại.'));
         } finally {
             setPipelineRunning(false);
         }
@@ -435,12 +430,9 @@ function HistoryTab() {
         if (!token) { message.error('Chưa đăng nhập.'); return; }
         setLoading(true);
         try {
-            const res = await fetch(
-                `${API_URL}/api/serpapi/food-trends/history?geo=${GEO}&page=${page}&limit=${PAGE_SIZE}`,
-                { headers: { Authorization: `Bearer ${token}` } }
+            const body = await apiGet<PagedTrends>(
+                `/api/serpapi/food-trends/history?geo=${GEO}&page=${page}&limit=${PAGE_SIZE}`
             );
-            if (!res.ok) throw new Error('Lỗi API');
-            const body: PagedTrends = await res.json();
             setData(body.content ?? []);
             setTotalItems(body.pagination?.total_items ?? 0);
             setTotalPages(body.pagination?.total_pages ?? 0);
@@ -448,8 +440,8 @@ function HistoryTab() {
             if ((body.content ?? []).length === 0) {
                 message.info('Chưa có dữ liệu xu hướng nào trong database.');
             }
-        } catch {
-            message.error('Không thể tải dữ liệu lịch sử.');
+        } catch (err) {
+            message.error(getErrorMessage(err, 'Không thể tải dữ liệu lịch sử.'));
         } finally {
             setLoading(false);
         }
@@ -514,15 +506,12 @@ function InstagramTab() {
         if (!token) { message.error('Chưa đăng nhập.'); return; }
         setLoading(true);
         try {
-            const res = await fetch(
-                `${API_URL}/api/social-media/instagram/trending-foods?limit=${LIMIT}`,
-                { headers: { Authorization: `Bearer ${token}` } }
+            const body = await apiGet<InstagramTrendingFood[]>(
+                `/api/social-media/instagram/trending-foods?limit=${LIMIT}`
             );
-            if (!res.ok) throw new Error('Lỗi API');
-            const body: InstagramTrendingFood[] = await res.json();
             setData(body ?? []);
-        } catch {
-            message.error('Không thể tải xu hướng Instagram.');
+        } catch (err) {
+            message.error(getErrorMessage(err, 'Không thể tải xu hướng Instagram.'));
         } finally {
             setLoading(false);
         }
@@ -668,12 +657,10 @@ function RawDataTab() {
         try {
             const dateStr = date ? date.format('YYYY-MM-DD') : '';
             const url = dateStr
-                ? `${API_URL}/api/serpapi/food-trends/raw?geo=${GEO}&date=${dateStr}&page=${page}&limit=${PAGE_SIZE}`
-                : `${API_URL}/api/serpapi/food-trends/raw?geo=${GEO}&page=${page}&limit=${PAGE_SIZE}`;
+                ? `/api/serpapi/food-trends/raw?geo=${GEO}&date=${dateStr}&page=${page}&limit=${PAGE_SIZE}`
+                : `/api/serpapi/food-trends/raw?geo=${GEO}&page=${page}&limit=${PAGE_SIZE}`;
 
-            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-            if (!res.ok) throw new Error('Lỗi API');
-            const body: RawTrendsResponse = await res.json();
+            const body = await apiGet<RawTrendsResponse>(url);
             const content = body.pagedTrends?.content ?? [];
             setData(content);
             setTotalItems(body.pagedTrends?.pagination?.total_items ?? 0);
@@ -681,8 +668,8 @@ function RawDataTab() {
             if (content.length === 0) {
                 message.info('Chưa có raw data cho ngày này. Bấm "Fetch Raw Data" để lấy dữ liệu từ Google Trends.');
             }
-        } catch {
-            message.error('Không thể tải raw data.');
+        } catch (err) {
+            message.error(getErrorMessage(err, 'Không thể tải raw data.'));
         } finally {
             setLoading(false);
         }
@@ -693,20 +680,17 @@ function RawDataTab() {
         if (!token) { message.error('Chưa đăng nhập.'); return; }
         setFetching(true);
         try {
-            const res = await fetch(
-                `${API_URL}/api/serpapi/food-trends/fetch?geo=${GEO}&hours=24`,
-                { method: 'POST', headers: { Authorization: `Bearer ${token}` } }
+            const result = await apiPost<{ status: string; fetched: number; reason: string | null }>(
+                `/api/serpapi/food-trends/fetch?geo=${GEO}&hours=24`
             );
-            if (!res.ok) throw new Error('Lỗi API');
-            const result = await res.json();
             if (result.status === 'ok') {
                 message.success(`Đã fetch ${result.fetched} raw queries từ Google Trends!`);
             } else {
                 message.info(result.reason || 'Đã có data cho hôm nay.');
             }
             await fetchRawTrends();
-        } catch {
-            message.error('Fetch raw data thất bại.');
+        } catch (err) {
+            message.error(getErrorMessage(err, 'Fetch raw data thất bại.'));
         } finally {
             setFetching(false);
         }

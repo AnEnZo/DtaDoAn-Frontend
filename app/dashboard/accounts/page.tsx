@@ -15,7 +15,8 @@ import {
     message,
 } from 'antd';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { API_URL } from '@/lib/api/client';
+import { apiGet, apiPost, apiPut } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { getToken } from '@/lib/auth/auth-utils';
 
 interface User {
@@ -82,11 +83,7 @@ export default function UserPage() {
 
         try {
             // Spring Boot page is 0-indexed
-            const response = await fetch(`${API_URL}/api/users?page=${page - 1}&size=${size}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!response.ok) throw new Error('Failed to fetch users');
-            const data = await response.json();
+            const data = await apiGet<any>(`/api/users?page=${page - 1}&size=${size}`);
             setUsers(data.content || []);
             setPagination({
                 current: page,
@@ -95,6 +92,7 @@ export default function UserPage() {
             });
         } catch (error) {
             console.error('Lỗi khi tải người dùng:', error);
+            message.error(getErrorMessage(error, 'Lỗi khi tải người dùng.'));
         }
     };
 
@@ -111,16 +109,12 @@ export default function UserPage() {
         if (!token) return;
 
         try {
-            const res = await fetch(`${API_URL}/api/users/${id}/status?status=${status}`, {
-                method: 'PUT',
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (!res.ok) throw new Error('Failed to update status');
+            await apiPut(`/api/users/${id}/status?status=${status}`);
             fetchUsers(pagination.current, pagination.pageSize);
             message.success(status === 'ACTIVE' ? 'Kích hoạt người dùng thành công' : 'Vô hiệu hóa người dùng thành công');
         } catch (error) {
             console.error('Lỗi khi cập nhật trạng thái người dùng:', error);
-            message.error(status === 'ACTIVE' ? 'Lỗi khi kích hoạt người dùng.' : 'Lỗi khi vô hiệu hóa người dùng.');
+            message.error(getErrorMessage(error, status === 'ACTIVE' ? 'Lỗi khi kích hoạt người dùng.' : 'Lỗi khi vô hiệu hóa người dùng.'));
         }
     };
 
@@ -159,7 +153,7 @@ export default function UserPage() {
             const payload: any = { ...values };
 
             if (isEdit) {
-                url = `${API_URL}/api/users/${editId}`;
+                url = `/api/users/${editId}`;
                 if (values.editRole) {
                     payload.role = values.editRole;
                 }
@@ -168,38 +162,17 @@ export default function UserPage() {
                 delete payload.provider;
             } else {
                 if (values.role === 'STAFF') {
-                    url = `${API_URL}/api/users/staff`;
+                    url = `/api/users/staff`;
                 } else {
-                    url = `${API_URL}/api/users/user`;
+                    url = `/api/users/user`;
                 }
                 payload.provider = 'LOCAL';
             }
 
-            const method = isEdit ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(payload),
-            });
-
-            if (!response.ok) {
-                const text = await response.text();
-                let errorMessage = 'Đã xảy ra lỗi';
-
-                try {
-                    // Try to parse as JSON and extract message
-                    const errorJson = JSON.parse(text);
-                    errorMessage = errorJson.message || errorJson.error || text;
-                } catch {
-                    // If not JSON, use the raw text (strip if too long)
-                    errorMessage = text.length > 200 ? text.substring(0, 200) + '...' : text;
-                }
-
-                throw new Error(errorMessage);
+            if (isEdit) {
+                await apiPut(url, payload);
+            } else {
+                await apiPost(url, payload);
             }
 
             // Reload current page
@@ -223,7 +196,7 @@ export default function UserPage() {
             message.success(isEdit ? 'Cập nhật thành công' : 'Thêm người dùng thành công');
         } catch (error: any) {
             console.error('Lỗi khi lưu người dùng:', error);
-            message.error(`Lỗi: ${error.message}`);
+            message.error(getErrorMessage(error, 'Lỗi khi lưu người dùng.'));
         }
     };
 

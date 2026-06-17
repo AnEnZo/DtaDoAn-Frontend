@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
-import { getAuthHeader } from '../auth/auth-utils';
+import { getAuthHeader, removeToken } from '../auth/auth-utils';
 
 // Get API URL from environment variable
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
@@ -24,14 +24,17 @@ apiClient.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle 401 Unauthorized
+// Response interceptor to handle 401 Unauthorized:
+// clear the (likely expired) token and bounce to the login page.
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
-        if (error.response?.status === 401) {
-            // Token expired or invalid - could redirect to login
-            // For now, just pass the error through
-            console.warn('Unauthorized request - token may be expired');
+        if (error.response?.status === 401 && typeof window !== 'undefined') {
+            removeToken();
+            if (window.location.pathname !== '/') {
+                const current = window.location.pathname + window.location.search;
+                window.location.href = `/?session=expired&redirect=${encodeURIComponent(current)}`;
+            }
         }
         return Promise.reject(error);
     }

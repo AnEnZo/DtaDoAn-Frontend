@@ -17,8 +17,8 @@ import {
 } from 'antd';
 import { UploadOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { API_URL } from '@/lib/api/client';
-import { getToken } from '@/lib/auth/auth-utils';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { uploadImageViaBackend } from '@/lib/cloudinary/upload';
 
 interface CategoryDTO {
@@ -72,18 +72,13 @@ export default function FoodPage() {
 
     useEffect(() => {
         const fetchAll = async () => {
-            const token = getToken();
-            if (!token) return;
-
             try {
-                const res = await fetch(`${API_URL}/api/categories`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                const catData: CategoryDTO[] = await res.json();
+                const catData = await apiGet<CategoryDTO[]>('/api/categories');
                 setCategories(catData);
                 await fetchFoods(catData);
             } catch (err) {
                 console.error('Lỗi khi load:', err);
+                message.error(getErrorMessage(err, 'Lỗi khi tải dữ liệu món ăn'));
             }
         };
 
@@ -91,14 +86,8 @@ export default function FoodPage() {
     }, []);
 
     const fetchFoods = async (loadedCategories: CategoryDTO[]) => {
-        const token = getToken();
-        if (!token) return;
-
         try {
-            const res = await fetch(`${API_URL}/api/menu-items`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data: any[] = await res.json();
+            const data = await apiGet<any[]>('/api/menu-items');
 
             const foodsWithCategory = data.map((food) => {
                 const categoryId = food.category?.id;
@@ -117,6 +106,7 @@ export default function FoodPage() {
             setDanhSachMon(foodsWithCategory);
         } catch (err) {
             console.error('Lỗi khi lấy món ăn:', err);
+            message.error(getErrorMessage(err, 'Lỗi khi lấy danh sách món ăn'));
         }
     };
 
@@ -177,8 +167,6 @@ export default function FoodPage() {
             message.warning('Vui lòng đợi thao tác hoàn tất');
             return;
         }
-        const token = getToken();
-        if (!token) return;
 
         let imageUrl = newFood.imageUrl;
         try {
@@ -195,47 +183,27 @@ export default function FoodPage() {
                 return;
             }
 
-            const res = await fetch(`${API_URL}/api/menu-items`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ ...newFood, imageUrl }),
-            });
-
-            if (!res.ok) throw new Error('Failed to create food');
-
-            const data = await res.json();
+            const data = await apiPost<MenuItemDTO>('/api/menu-items', { ...newFood, imageUrl });
             setDanhSachMon((prev) => [...prev, data]);
             resetCreateForm();
             setShowCreateForm(false);
             message.success('Thêm món ăn thành công');
         } catch (err) {
             console.error('Lỗi khi tạo món ăn:', err);
-            message.error(err instanceof Error ? err.message : 'Lỗi khi tạo món ăn');
+            message.error(getErrorMessage(err, 'Lỗi khi tạo món ăn'));
         } finally {
             setUploadingNew(false);
         }
     };
 
     const deleteFood = async (id: number) => {
-        const token = getToken();
-        if (!token) return;
-
         try {
-            const res = await fetch(`${API_URL}/api/menu-items/${id}`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (!res.ok) throw new Error('Failed to delete food');
-
+            await apiDelete(`/api/menu-items/${id}`);
             setDanhSachMon((prev) => prev.filter((m) => m.id !== id));
             message.success('Xóa món ăn thành công');
         } catch (err) {
             console.error('Lỗi khi xóa món ăn:', err);
-            message.error('Lỗi khi xóa món ăn');
+            message.error(getErrorMessage(err, 'Lỗi khi xóa món ăn'));
         }
     };
 
@@ -245,8 +213,6 @@ export default function FoodPage() {
             return;
         }
         if (!editingId) return;
-        const token = getToken();
-        if (!token) return;
 
         let imageUrl = editFood.imageUrl;
         try {
@@ -263,24 +229,13 @@ export default function FoodPage() {
                 return;
             }
 
-            const res = await fetch(`${API_URL}/api/menu-items/${editingId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ ...editFood, imageUrl }),
-            });
-
-            if (!res.ok) throw new Error('Failed to update food');
-
-            const data = await res.json();
+            const data = await apiPut<MenuItemDTO>(`/api/menu-items/${editingId}`, { ...editFood, imageUrl });
             setDanhSachMon((prev) => prev.map((m) => (m.id === editingId ? data : m)));
             resetEditForm();
             message.success('Cập nhật món ăn thành công');
         } catch (err) {
             console.error('Lỗi khi cập nhật món ăn:', err);
-            message.error(err instanceof Error ? err.message : 'Lỗi khi cập nhật món ăn');
+            message.error(getErrorMessage(err, 'Lỗi khi cập nhật món ăn'));
         } finally {
             setUploadingEdit(false);
         }

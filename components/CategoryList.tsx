@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { List, Typography, Spin } from 'antd';
+import { List, Typography, Spin, message } from 'antd';
 import { AppstoreOutlined, CoffeeOutlined, GiftOutlined, StarOutlined } from '@ant-design/icons';
-import { API_URL } from '@/lib/api/client';
+import { apiGet } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 
 export interface Category {
     id: number;
@@ -31,15 +32,7 @@ const CategoryList: React.FC<Props> = ({ onSelect }) => {
     useEffect(() => {
         const fetchCategories = async () => {
             try {
-                const { getToken } = await import('@/lib/auth/auth-utils');
-                const token = getToken();
-                const headers: HeadersInit = {};
-                if (token) {
-                    headers.Authorization = `Bearer ${token}`;
-                }
-
-                const res = await fetch(`${API_URL}/api/categories`, { headers });
-                const data = await res.json();
+                const data = await apiGet<Category[]>('/api/categories');
 
                 const allOption: Category = { id: -1, name: 'Tất cả' };
                 const list = [allOption, ...data];
@@ -49,6 +42,7 @@ const CategoryList: React.FC<Props> = ({ onSelect }) => {
                 setLoading(false);
             } catch (err) {
                 console.error(err);
+                message.error(getErrorMessage(err, 'Không thể tải danh mục.'));
                 setLoading(false);
             }
         };

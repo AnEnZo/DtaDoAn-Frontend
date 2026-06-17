@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { API_URL } from '@/lib/api/client';
+import { apiPost } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 
 interface ResetReq {
     username: string;
@@ -41,37 +42,17 @@ export default function ResetPasswordEmailPage() {
         }
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}/api/auth/reset-password-email`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, otp, newPassword }),
-            });
-            
-            if (!res.ok) {
-                let errorMsg = 'Đặt lại mật khẩu thất bại';
-                try {
-                    const contentType = res.headers.get('content-type');
-                    if (contentType && contentType.includes('application/json')) {
-                        const data = await res.json();
-                        errorMsg = data.message || errorMsg;
-                    } else {
-                        const text = await res.text();
-                        if (text) errorMsg = text;
-                    }
-                } catch {
-                    // Use fallback
-                }
-                throw new Error(errorMsg);
-            }
-
-            const data = await res.json();
-            setMessage(data.message || 'Đặt lại mật khẩu thành công');
+            const data = await apiPost<{ message?: string }>(
+                '/api/auth/reset-password-email',
+                { username, otp, newPassword },
+                { auth: false }
+            );
+            setMessage(data?.message || 'Đặt lại mật khẩu thành công');
             setIsError(false);
             // Chuyển về login sau 2s
             setTimeout(() => router.push('/'), 2000);
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Đặt lại mật khẩu thất bại';
-            setMessage(errorMessage);
+            setMessage(getErrorMessage(err, 'Đặt lại mật khẩu thất bại'));
             setIsError(true);
         } finally {
             setLoading(false);

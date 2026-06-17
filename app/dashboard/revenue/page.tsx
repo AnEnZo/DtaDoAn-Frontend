@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Card, Space, Typography, Radio, InputNumber, Select, Row, Col } from 'antd';
+import { Card, Space, Typography, Radio, InputNumber, Select, Row, Col, message } from 'antd';
 import {
     DollarOutlined,
     ShoppingOutlined,
@@ -20,8 +20,8 @@ import {
     Pie,
     Cell,
 } from 'recharts';
-import { API_URL } from '@/lib/api/client';
-import { getToken } from '@/lib/auth/auth-utils';
+import { apiGet } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 
 interface RevenueData {
     label: string;
@@ -44,23 +44,22 @@ export default function RevenuePage() {
     };
 
     const fetchYearData = async () => {
-        const token = getToken();
-        if (!token) return;
-
         const results: RevenueData[] = [];
+        let lastError: unknown = null;
         for (let m = 1; m <= 12; m++) {
             try {
-                const response = await fetch(`${API_URL}/api/revenues/month?month=${m}&year=${year}`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                const revenue = await response.json();
+                const revenue = await apiGet<number>(`/api/revenues/month?month=${m}&year=${year}`);
                 results.push({ label: `Tháng ${m}`, revenue: Number(revenue) });
             } catch (error) {
                 console.error('Lỗi khi lấy dữ liệu tháng', m, error);
+                lastError = error;
                 results.push({ label: `Tháng ${m}`, revenue: 0 });
             }
         }
         setData(results);
+        if (lastError) {
+            message.error(getErrorMessage(lastError, 'Lỗi khi tải dữ liệu doanh thu theo năm'));
+        }
     };
 
     const labelFor = (m: string) => {
@@ -73,9 +72,6 @@ export default function RevenuePage() {
     };
 
     const fetchPaymentCounts = async () => {
-        const token = getToken();
-        if (!token) return;
-
         try {
             const start = mode === 'year' ? `${year}-01-01` : `${year}-${String(month).padStart(2, '0')}-01`;
             const end = (() => {
@@ -84,10 +80,9 @@ export default function RevenuePage() {
                 return `${year}-${String(month).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             })();
 
-            const res = await fetch(`${API_URL}/api/revenues/payment-method/counts?start=${start}&end=${end}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const rows: Array<{ paymentMethod: string; count: number }> = await res.json();
+            const rows = await apiGet<Array<{ paymentMethod: string; count: number }>>(
+                `/api/revenues/payment-method/counts?start=${start}&end=${end}`,
+            );
             const mapped = (rows || []).map((r) => ({
                 name: labelFor(r.paymentMethod),
                 value: Number(r.count),
@@ -98,20 +93,15 @@ export default function RevenuePage() {
             setTotalOrders(total);
         } catch (e) {
             console.error('Lỗi khi lấy số lượng đơn theo phương thức:', e);
+            message.error(getErrorMessage(e, 'Lỗi khi tải số lượng đơn theo phương thức thanh toán'));
             setPmCounts([]);
             setTotalOrders(0);
         }
     };
 
     const fetchMonthData = async () => {
-        const token = getToken();
-        if (!token) return;
-
         try {
-            const response = await fetch(`${API_URL}/api/revenues/daily?month=${month}&year=${year}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const rawData = await response.json();
+            const rawData = await apiGet<any[]>(`/api/revenues/daily?month=${month}&year=${year}`);
             const mapped: RevenueData[] = rawData.map((d: any) => {
                 const day = new Date(d.date).getDate();
                 return { label: `Ngày ${day}`, revenue: d.amount };
@@ -119,6 +109,7 @@ export default function RevenuePage() {
             setData(mapped);
         } catch (error) {
             console.error('❌ Lỗi khi gọi API /daily:', error);
+            message.error(getErrorMessage(error, 'Lỗi khi tải dữ liệu doanh thu theo ngày'));
             setData([]);
         }
     };

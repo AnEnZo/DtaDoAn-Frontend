@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Button, Input, Modal, Popconfirm, Space, Typography, message } from 'antd';
-import { API_URL } from '@/lib/api/client';
-import { getToken } from '@/lib/auth/auth-utils';
+import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 
 export interface Category {
     id: number;
@@ -19,28 +19,15 @@ export default function CategoryPage() {
     const [loading, setLoading] = useState(false);
 
     const fetchCategories = async () => {
-        const token = getToken();
-        if (!token) return;
-
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/api/categories`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                    'Cache-Control': 'no-cache',
-                },
+            const data = await apiGet<Category[]>('/api/categories', {
+                headers: { 'Cache-Control': 'no-cache' },
             });
-
-            if (!response.ok) {
-                throw new Error('Không thể lấy danh sách danh mục');
-            }
-
-            const data: Category[] = await response.json();
             setCategories(data);
             setSearch('');
         } catch (err) {
-            message.error('Lỗi khi tải danh mục. Vui lòng thử lại.');
+            message.error(getErrorMessage(err, 'Lỗi khi tải danh mục. Vui lòng thử lại.'));
             console.error(err);
         } finally {
             setLoading(false);
@@ -69,39 +56,19 @@ export default function CategoryPage() {
             return;
         }
 
-        const token = getToken();
-        if (!token) {
-            message.error('Bạn chưa đăng nhập.');
-            return;
-        }
-
         setLoading(true);
         try {
             const isCreate = form.id === 0;
-            const method = isCreate ? 'POST' : 'PUT';
-            const url = isCreate
-                ? `${API_URL}/api/categories`
-                : `${API_URL}/api/categories/${form.id}`;
 
             // Only send name field (id should not be sent for create)
-            const payload = isCreate
-                ? { name: form.name.trim() }
-                : { name: form.name.trim() };
+            const payload = { name: form.name.trim() };
 
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                    'Cache-Control': 'no-store',
-                },
-                body: JSON.stringify(payload),
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const errorMessage = errorData.message || errorData.error || 'Thao tác thất bại';
-                throw new Error(errorMessage);
+            if (isCreate) {
+                await apiPost('/api/categories', payload, { headers: { 'Cache-Control': 'no-store' } });
+            } else {
+                await apiPut(`/api/categories/${form.id}`, payload, {
+                    headers: { 'Cache-Control': 'no-store' },
+                });
             }
 
             setForm({ id: 0, name: '' });
@@ -109,8 +76,8 @@ export default function CategoryPage() {
             setModalOpen(false);
             message.success(isCreate ? 'Thêm danh mục thành công' : 'Cập nhật danh mục thành công');
             await fetchCategories();
-        } catch (err: any) {
-            message.error(err.message || 'Lỗi khi gửi dữ liệu. Vui lòng thử lại.');
+        } catch (err) {
+            message.error(getErrorMessage(err, 'Lỗi khi gửi dữ liệu. Vui lòng thử lại.'));
             console.error('Category error:', err);
         } finally {
             setLoading(false);
@@ -123,32 +90,16 @@ export default function CategoryPage() {
     };
 
     const handleDelete = async (id: number) => {
-        const token = getToken();
-        if (!token) {
-            message.error('Bạn chưa đăng nhập.');
-            return;
-        }
-
         setLoading(true);
         try {
-            const response = await fetch(`${API_URL}/api/categories/${id}`, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Cache-Control': 'no-cache',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error('Không thể xóa danh mục');
-            }
+            await apiDelete(`/api/categories/${id}`, { headers: { 'Cache-Control': 'no-cache' } });
 
             setForm({ id: 0, name: '' });
             setSearch('');
             message.success('Xóa danh mục thành công');
             await fetchCategories();
         } catch (err) {
-            message.error('Lỗi khi xóa danh mục.');
+            message.error(getErrorMessage(err, 'Lỗi khi xóa danh mục.'));
             console.error(err);
         } finally {
             setLoading(false);

@@ -21,7 +21,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { HomeOutlined, GiftOutlined } from '@ant-design/icons';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { API_URL } from '@/lib/api/client';
+import { apiGet, apiPost, apiPatch } from '@/lib/api/http';
+import { getErrorMessage } from '@/lib/api/errors';
 import { getToken } from '@/lib/auth/auth-utils';
 
 interface User {
@@ -75,18 +76,12 @@ export default function ProfilePage() {
                     return;
                 }
 
-                const res = await fetch(`${API_URL}/api/users/me`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-
-                if (!res.ok) throw new Error('Failed to fetch profile');
-
-                const data = await res.json();
+                const data = await apiGet<User>('/api/users/me');
                 setUser(data);
                 setFormUser(data);
             } catch (err) {
                 console.error(err);
-                setError('Không thể tải thông tin người dùng.');
+                setError(getErrorMessage(err, 'Không thể tải thông tin người dùng.'));
             } finally {
                 setLoading(false);
             }
@@ -115,28 +110,16 @@ export default function ProfilePage() {
         if (updates.email || updates.phoneNumber) {
             try {
                 setOtpSending(true);
-                const res = await fetch(`${API_URL}/api/users/me/otp/send`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        email: updates.email ?? null,
-                        phoneNumber: updates.phoneNumber ?? null,
-                    }),
+                await apiPost('/api/users/me/otp/send', {
+                    email: updates.email ?? null,
+                    phoneNumber: updates.phoneNumber ?? null,
                 });
-
-                if (!res.ok) {
-                    const errorData = await res.text();
-                    throw new Error(errorData || 'Không thể gửi OTP');
-                }
 
                 setPendingUpdates(updates);
                 setOtpModalOpen(true);
             } catch (e: any) {
                 console.error(e);
-                alert(e.message || 'Không thể gửi OTP tới email.');
+                alert(getErrorMessage(e, 'Không thể gửi OTP'));
             } finally {
                 setOtpSending(false);
             }
@@ -145,23 +128,12 @@ export default function ProfilePage() {
 
         // No sensitive changes -> normal update
         try {
-            const res = await fetch(`${API_URL}/api/users/me`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify(formUser),
-            });
-
-            if (!res.ok) throw new Error('Lỗi cập nhật');
-
-            const data = await res.json();
+            const data = await apiPatch<User>('/api/users/me', formUser);
             setUser(data);
             setEditing(false);
         } catch (err) {
             console.error(err);
-            alert('Lỗi khi cập nhật thông tin!');
+            alert(getErrorMessage(err, 'Lỗi khi cập nhật thông tin!'));
         }
     };
 
@@ -180,21 +152,7 @@ export default function ProfilePage() {
             if (pendingUpdates.email != null) body.email = pendingUpdates.email;
             if (pendingUpdates.phoneNumber != null) body.phoneNumber = pendingUpdates.phoneNumber;
 
-            const res = await fetch(`${API_URL}/api/users/me/otp/verify-update`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify(body),
-            });
-
-            if (!res.ok) {
-                const errorData = await res.text();
-                throw new Error(errorData || 'Xác thực thất bại');
-            }
-
-            const data = await res.json();
+            const data = await apiPost<User>('/api/users/me/otp/verify-update', body);
             setUser(data);
             setFormUser(data);
             setEditing(false);
@@ -203,7 +161,7 @@ export default function ProfilePage() {
             setPendingUpdates({});
         } catch (e: any) {
             console.error(e);
-            alert(e.message || 'Xác thực OTP thất bại.');
+            alert(getErrorMessage(e, 'Xác thực OTP thất bại.'));
         } finally {
             setOtpVerifying(false);
         }
@@ -373,19 +331,13 @@ export default function ProfilePage() {
                                     if (!token) return;
                                     try {
                                         setOtpSending(true);
-                                        await fetch(`${API_URL}/api/users/me/otp/send`, {
-                                            method: 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                Authorization: `Bearer ${token}`
-                                            },
-                                            body: JSON.stringify({
-                                                email: pendingUpdates.email ?? null,
-                                                phoneNumber: pendingUpdates.phoneNumber ?? null,
-                                            }),
+                                        await apiPost('/api/users/me/otp/send', {
+                                            email: pendingUpdates.email ?? null,
+                                            phoneNumber: pendingUpdates.phoneNumber ?? null,
                                         });
                                     } catch (e) {
                                         console.error(e);
+                                        alert(getErrorMessage(e, 'Không thể gửi lại OTP'));
                                     } finally {
                                         setOtpSending(false);
                                     }
