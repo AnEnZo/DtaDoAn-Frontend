@@ -334,18 +334,22 @@ export default function OrderDetailPage() {
             .then(async (res) => {
                 if (!res.ok) {
                     const text = await res.text();
-                    // Try to extract clean error message
+                    // Try to extract clean error message from JSON body
+                    let parsed: { message?: string } | null = null;
                     try {
-                        const json = JSON.parse(text);
-                        throw new Error(json.message || text);
+                        parsed = JSON.parse(text);
                     } catch {
-                        // If not JSON, extract message from Java exception
-                        const match = text.match(/IllegalStateException:\s*(.+?)(?:\n|$)/);
-                        if (match) {
-                            throw new Error(match[1].trim());
-                        }
-                        throw new Error(text || 'Voucher không hợp lệ hoặc đã hết hạn');
+                        parsed = null;
                     }
+                    if (parsed?.message) {
+                        throw new Error(parsed.message);
+                    }
+                    // If not JSON, extract message from Java exception
+                    const match = text.match(/IllegalStateException:\s*(.+?)(?:\n|$)/);
+                    if (match) {
+                        throw new Error(match[1].trim());
+                    }
+                    throw new Error(text || 'Voucher không hợp lệ hoặc đã hết hạn');
                 }
                 return res.json();
             })

@@ -204,7 +204,8 @@ export default function FoodPage() {
             message.success('Xóa món ăn thành công');
         } catch (err) {
             console.error('Lỗi khi xóa món ăn:', err);
-            message.error(getErrorMessage(err, 'Lỗi khi xóa món ăn'));
+            // Hiển thị lý do từ backend (vd: món đang nằm trong đơn chưa thanh toán) trong 5s.
+            message.error(getErrorMessage(err, 'Lỗi khi xóa món ăn'), 5);
         }
     };
 

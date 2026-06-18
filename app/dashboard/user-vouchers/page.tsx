@@ -57,13 +57,18 @@ export default function UserVoucherManagerPage() {
         try {
             const data = await apiGet<any>(`/api/vouchers?username=${username}`);
 
+            // Chỉ hiển thị voucher còn hoạt động (active) để đổi.
+            const activeOnly = (list: Voucher[]) => (list ?? []).filter((v) => v.active);
+
             if (data.userPoints !== undefined) {
-                setVouchers(data.vouchers);
-                setFiltered(data.vouchers);
+                const list = activeOnly(data.vouchers);
+                setVouchers(list);
+                setFiltered(list);
                 setUserPoints(data.userPoints);
             } else {
-                setVouchers(data);
-                setFiltered(data);
+                const list = activeOnly(data);
+                setVouchers(list);
+                setFiltered(list);
                 setUserPoints(0);
             }
         } catch (err) {
@@ -122,7 +127,8 @@ export default function UserVoucherManagerPage() {
             );
 
             setMsg(`🎉 Đổi voucher ${voucher.code} thành công!`);
-            await fetchAll();
+            // Refresh điểm + catalog, đồng thời load lại danh sách voucher đang sở hữu.
+            await Promise.all([fetchAll(), fetchUsedVouchers()]);
             setTimeout(() => setMsg(''), 3000);
         } catch (err: any) {
             console.error(err);
