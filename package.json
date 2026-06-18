@@ -6,9 +6,9 @@
     "postcss": "^8.5.10"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "node init && next dev",
+    "build": "node init && next build",
+    "start": "node init && next start",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,css,scss,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,css,scss,json,md}\""
